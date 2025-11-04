@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
+import "bootstrap-icons/font/bootstrap-icons.css";
 import { useNavigate } from "react-router-dom";
 
 function EmployeePerformance() {
@@ -65,6 +66,11 @@ function EmployeePerformance() {
     return "";
   };
 
+  // ✅ New function to handle navigation to performance metrics page
+  const handleNavigate = (emp, mode) => {
+    navigate("/theme/performancemetrics", { state: { employee: emp, mode } });
+  };
+
   return (
     <div className="container">
       <div className="text-dark">
@@ -73,9 +79,7 @@ function EmployeePerformance() {
 
       <div className="card shadow-sm">
         <div className="card-body p-3">
-
           <div className="d-flex justify-content-between align-items-center mb-3">
-
             <div className="d-flex justify-content-start">
               <input
                 type="text"
@@ -95,11 +99,10 @@ function EmployeePerformance() {
               className="btn btn-primary"
               onClick={() => navigate("/theme/performancemetrics")}
             >
-              Add Performance
+              <i className="bi bi-plus-circle me-2" /> Add Performance
             </button>
           </div>
 
-          
           <div className="table-responsive mt-3">
             <table className="table table-bordered table-striped text-center align-middle">
               <thead className="table-dark">
@@ -143,14 +146,14 @@ function EmployeePerformance() {
                       <button
                         className="btn btn-sm btn-info me-2"
                         title="Edit"
-                        data-bs-toggle="tooltip"
+                        onClick={() => handleNavigate(emp, "edit")}
                       >
                         <i className="bi bi-pencil-square text-white"></i>
                       </button>
                       <button
                         className="btn btn-sm btn-warning"
                         title="View"
-                        data-bs-toggle="tooltip"
+                        onClick={() => handleNavigate(emp, "view")}
                       >
                         <i className="bi bi-eye text-white"></i>
                       </button>
@@ -161,7 +164,6 @@ function EmployeePerformance() {
             </table>
           </div>
 
-          
           <nav>
             <ul className="pagination justify-content-end mt-2 ">
               <li className="page-item disabled">

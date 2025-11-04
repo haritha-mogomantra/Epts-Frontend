@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const PerformanceMetrics = () => {
   const [employeeId, setEmployeeId] = useState("");
@@ -12,38 +12,8 @@ const PerformanceMetrics = () => {
     presentDate: "",
   });
 
-  const employeeDatabase = {
-    1001: { name: "Anil", department: "Fullstack", manager: "Haritha" },
-    1002: { name: "Gopi", department: "Backend", manager: "Haritha" },
-    1003: { name: "Sandeep", department: "Database", manager: "Haritha" },
-    1004: { name: "Srinivas", department: "Testing", manager: "Haritha" },
-  };
-
-  const handleSearch = () => {
-    const data = employeeDatabase[employeeId];
-    if (data) {
-      setEmployeeData({
-        ...data,
-        weeklyCalendar: "",
-        presentDate: "",
-      });
-    } else {
-      alert("Employee ID not found!");
-      setEmployeeData({
-        name: "",
-        department: "",
-        manager: "",
-        weeklyCalendar: "",
-        presentDate: "",
-      });
-    }
-  };
-
-  const handleChange = (e) => {
-    setEmployeeData({ ...employeeData, [e.target.name]: e.target.value });
-  };
-
-  const rows = [
+  const [scores, setScores] = useState([]);
+  const [measurements, setMeasurements] = useState([
     "Communication Skills",
     "Multi Tasking Abilities",
     "Team Skills",
@@ -59,29 +29,182 @@ const PerformanceMetrics = () => {
     "Dependability",
     "Attendance",
     "Punctuality",
-  ];
+  ]);
+
+  const navigate = useNavigate();
+  const printRef = useRef(null);
+  const location = useLocation();
+  const { employee, mode } = location.state || {};
+
+  useEffect(() => {
+    if (employee) {
+      setEmployeeId(employee.id);
+      setEmployeeData({
+        name: `${employee.firstname} ${employee.lastname || ""}`,
+        department: employee.designation || "",
+        manager: employee.manager || "",
+      });
+    }
+  }, [employee]);
+
+  const employeeDatabase = {
+    1001: { name: "Anil", department: "Fullstack", manager: "Haritha" },
+    1002: { name: "Gopi", department: "Backend", manager: "Haritha" },
+    1003: { name: "Sandeep", department: "Database", manager: "Haritha" },
+    1004: { name: "Srinivas", department: "Testing", manager: "Haritha" },
+  };
+
+  const handleSearch = () => {
+    const data = employeeDatabase[employeeId];
+    if (data) {
+      setEmployeeData({ ...data });
+    } else {
+      alert("Employee ID not found!");
+      setEmployeeData({ name: "", department: "", manager: "" });
+    }
+  };
+
+  const handleChange = (e) => {
+    setEmployeeData({ ...employeeData, [e.target.name]: e.target.value });
+  };
+
+  const handleScoreChange = (index, value) => {
+    const updatedScores = [...scores];
+    const numericValue =
+      value === "" ? "" : Math.min(100, Math.max(0, Number(value)));
+    updatedScores[index] = numericValue;
+    setScores(updatedScores);
+  };
 
   const columns = ["Score", "Comments/Remarks"];
-  const navigate = useNavigate();
+
+  const totalScore = scores
+    .filter((s) => s !== "")
+    .reduce((sum, val) => sum + Number(val), 0);
+
+  const handlePrint = () => {
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Employee Performance Review</title>
+          <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; color: #000; }
+            .report-header {
+              background-color: #FFD700;
+              color: #000;
+              text-align: center;
+              font-weight: bold;
+              padding: 10px;
+              font-size: 22px;
+              border: 2px solid #000;
+            }
+            .section-title {
+              background-color: #000;
+              color: #fff;
+              padding: 6px 10px;
+              font-size: 16px;
+              font-weight: bold;
+              margin-top: 20px;
+              text-transform: uppercase;
+            }
+            .info-table td {
+              padding: 4px 10px;
+              vertical-align: middle;
+              border: 1px solid #000;
+            }
+            .eval-table th, .eval-table td {
+              border: 1px solid #000;
+              text-align: center;
+              font-size: 13px;
+              padding: 6px;
+            }
+            .eval-table th {
+              background-color: #f2f2f2;
+              font-weight: bold;
+            }
+            .footer-summary td {
+              background-color: #001f3f;
+              color: white;
+              font-weight: bold;
+            }
+            @media print {
+              body { -webkit-print-color-adjust: exact; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="report-header">EMPLOYEE PERFORMANCE REVIEW</div>
+
+          <div class="section-title">Employee Information</div>
+          <table class="table table-bordered info-table mb-3">
+            <tr>
+              <td><strong>Employee Name:</strong> ${employeeData.name || ""}</td>
+              <td><strong>Department:</strong> ${employeeData.department || ""}</td>
+              <td><strong>Reviewer:</strong> ${employeeData.manager || ""}</td>
+            </tr>
+            <tr>
+              <td><strong>Date:</strong> ${new Date().toLocaleDateString()}</td>
+              <td><strong>Period of Review:</strong> Week</td>
+              <td><strong>Job Title:</strong> ${employeeData.department || ""}</td>
+            </tr>
+          </table>
+
+          <div class="section-title">Performance Evaluation</div>
+          <table class="table table-bordered eval-table mb-3">
+            <thead>
+              <tr>
+                <th>Performance Evaluation</th>
+                <th>Score</th>
+                <th>Comment</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${measurements
+                .map(
+                  (m, i) => `
+                <tr>
+                  <td>${m}</td>
+                  <td>${scores[i] || ""}</td>
+                  <td></td>
+                </tr>
+              `
+                )
+                .join("")}
+            </tbody>
+            <tfoot>
+              <tr class="footer-summary">
+                <td>Total</td>
+                <td>${totalScore}</td>
+                <td>100%</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <div class="text-end mt-4">
+            <strong>Total Score:</strong> ${totalScore} / ${measurements.length * 100}
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
 
   return (
     <div className="container mt-0">
-
-
-      <div className="d-flex justify-content-between  text-black">
+      <div className="d-flex justify-content-between text-black">
         <h5>EMPLOYEE PERFORMANCE METRICS</h5>
-
       </div>
 
-
       <div className="card-body">
-
         <div className="card">
           <div className="d-flex justify-content-between align-items-center mb-2 mt-2 p-2">
             <div className="d-flex align-items-center">
               <input
                 type="text"
-                className="form-control w-auto"
+                className="form-control"
                 style={{ width: "250px" }}
                 placeholder="Enter Employee ID"
                 value={employeeId}
@@ -92,158 +215,130 @@ const PerformanceMetrics = () => {
               </button>
             </div>
 
-            <button
-              className="btn btn-primary"
-              onClick={() => navigate("/base/employeeperformance")}
-            >
-              View Performance
-            </button>
+            <div>
+              <button
+                className="btn btn-primary me-2"
+                onClick={() => navigate("/base/employeeperformance")}
+              >
+                View Performance
+              </button>
+              <button className="btn btn-success" onClick={handlePrint}>
+                Print
+              </button>
+            </div>
           </div>
 
+          <div ref={printRef}>
+            <div className="p-2">
+              <form>
+                <div className="row">
+                  <div className="col-md-3 mb-3">
+                    <label className="form-label fw-bold">Employee ID</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="employeeId"
+                      value={employeeId}
+                      readOnly
+                    />
+                  </div>
 
+                  <div className="col-md-3 mb-3">
+                    <label className="form-label fw-bold">Employee Name</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="name"
+                      value={employeeData.name}
+                      onChange={handleChange}
+                      readOnly={mode === "view"}
+                    />
+                  </div>
 
-         <div className="p-2">
-           <form>
-            <div className="row">
-              <div className="col-md-3">
-                <div className="mb-3">
-                  <label className="form-label fw-bold">Employee Name</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    name="name"
-                    value={employeeData.name}
-                    onChange={handleChange}
-                    placeholder="Employee Name"
-                    readOnly
-                  />
+                  <div className="col-md-3 mb-3">
+                    <label className="form-label fw-bold">Department</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="department"
+                      value={employeeData.department}
+                      onChange={handleChange}
+                      readOnly={mode === "view"}
+                    />
+                  </div>
+
+                  <div className="col-md-3 mb-3">
+                    <label className="form-label fw-bold">Manager Assigned</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="manager"
+                      value={employeeData.manager}
+                      onChange={handleChange}
+                      readOnly={mode === "view"}
+                    />
+                  </div>
                 </div>
-              </div>
-
-              <div className="col-md-3">
-                <div className="mb-3">
-                  <label className="form-label fw-bold">Department</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    name="department"
-                    value={employeeData.department}
-                    onChange={handleChange}
-                    placeholder="Department"
-                    readOnly
-                  />
-                </div>
-              </div>
-
-              <div className="col-md-3">
-                <div className="mb-3">
-                  <label className="form-label fw-bold">Weekly Calendar</label>
-                  <select
-                    className="form-select"
-                    name="weeklyCalendar"
-                    value={employeeData.weeklyCalendar}
-                    onChange={handleChange}
-                  >
-                    <option value="">-- Select Week --</option>
-                    <option value="Week 40 (Sept 29 - Oct 5)">
-                      Week 40 (Sept 29 - Oct 5)
-                    </option>
-                    <option value="Week 41 (Oct 6 - Oct 12)">
-                      Week 41 (Oct 6 - Oct 12)
-                    </option>
-                    <option value="Week 42 (Oct 13 - Oct 19)">
-                      Week 42 (Oct 13 - Oct 19)
-                    </option>
-                    <option value="Week 43 (Oct 20 - Oct 26)">
-                      Week 43 (Oct 20 - Oct 26)
-                    </option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="col-md-3">
-                <div className="mb-3">
-                  <label className="form-label fw-bold">Manager Assigned</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    name="manager"
-                    value={employeeData.manager}
-                    onChange={handleChange}
-                    placeholder="Manager"
-                    readOnly
-                  />
-                </div>
-              </div>
+              </form>
             </div>
-          </form>
-         </div>
-        </div>
 
+            <div className="d-flex justify-content-between align-items-center mt-3 mb-3 p-2">
+              <h5 className="text-start mb-0">EMPLOYEE PERFORMANCE EVALUATION</h5>
+            </div>
 
-        <div>
-          <h5 className="text-start mb-3 mt-3">
-            EMPLOYEE PERFORMANCE EVALUTION
-          </h5>
-
-          <div className="table-responsive">
-            <table className="table table-bordered align-middle text-center">
-              <thead className="table-primary">
-                <tr>
-                  <th style={{ minWidth: "200px" }}>Measurement</th>
-                  {columns.map((col, index) => (
-                    <th key={index} style={{ minWidth: "150px" }}>
-                      {col}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-
-              <tbody>
-                {rows.map((row, rowIndex) => (
-                  <tr key={rowIndex}>
-                    <td className="fw-bold text-start">{row}</td>
-                    {columns.map((col, colIndex) => (
-                      <td key={colIndex}>
-                        {col === "Score Individual" ? (
-                          <input
-                            type="number"
-                            className="form-control form-control-sm  " style={{ width: "50px" }}
-                            min="0"
-                            max="100"
-                            onInput={(e) => {
-                              if (e.target.value > 100)
-                                e.target.value = 100;
-                              if (e.target.value < 0)
-                                e.target.value = 0;
-                            }}
-                          />
-                        ) : (
-                          <input
-                            type="text"
-                            className="form-control form-control-sm"
-                          />
-                        )}
-                      </td>
+            <div className="table-responsive p-2">
+              <table className="table table-bordered align-middle text-center">
+                <thead className="table-primary">
+                  <tr>
+                    <th>Measurement</th>
+                    {columns.map((col, index) => (
+                      <th key={index}>{col}</th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div>
-            <div className=" mt-3 d-flex justify-content-between">
-              <button className="btn btn-secondary px-4 mb-2 ">Cancel</button>
-              <button className="btn btn-primary px-4 mb-2">Submit</button>
-
+                </thead>
+                <tbody>
+                  {measurements.map((row, rowIndex) => (
+                    <tr key={rowIndex}>
+                      <td className="fw-bold text-start">{row}</td>
+                      <td>
+                        <input
+                          type="number"
+                          className="form-control form-control-sm text-center"
+                          min="0"
+                          max="100"
+                          value={scores[rowIndex] || ""}
+                          onChange={(e) =>
+                            handleScoreChange(rowIndex, e.target.value)
+                          }
+                          readOnly={mode === "view"}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder=""
+                          readOnly={mode === "view"}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
+            <div className="text-end fw-bold mt-2 p-2">
+              Total Score: {totalScore} / {measurements.length * 100}
+            </div>
           </div>
 
+          <div className="mt-3 d-flex justify-content-between p-2">
+            <button className="btn btn-secondary px-4 mb-2">Cancel</button>
+            <button className="btn btn-primary px-4 mb-2">Submit</button>
+          </div>
         </div>
       </div>
     </div>
-
   );
 };
 

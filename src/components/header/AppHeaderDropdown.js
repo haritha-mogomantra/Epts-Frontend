@@ -1,6 +1,10 @@
 import React, { useEffect } from "react";
+import {Link} from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
-import "bootstrap/dist/js/bootstrap.bundle.min.js"; // ✅ Important: adds dropdown, modal, tooltip behavior
+import "bootstrap/dist/js/bootstrap.bundle.min.js";
+
+
+
 
 const AppHeaderDropdown = () => {
   useEffect(() => {
@@ -25,10 +29,15 @@ const AppHeaderDropdown = () => {
         aria-labelledby="dropdownMenuButton"
       >
         <li>
-          <a className="dropdown-item" href="#">
+          <Link className="dropdown-item" to="/base/paginations">
             <i className="bi bi-person me-2"></i>
             Profile
-          </a>
+          </Link>
+        </li>
+        <li>
+          <Link className="dropdown-item" to="/base/list-groups">
+           <i className="bi bi-key me-2"></i> Change Password
+          </Link>
         </li>
 
         <li>

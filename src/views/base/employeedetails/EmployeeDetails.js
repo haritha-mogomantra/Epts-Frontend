@@ -39,12 +39,21 @@ function EmployeeTables() {
 
   const [mode, setMode] = useState("add"); // "add" | "edit" | "view"
   const [showModal, setShowModal] = useState(false);
+  const [alert, setAlert] = useState({ message: "", type: "" });
 
   useEffect(() => {
     if (showModal) document.body.classList.add("modal-open");
     else document.body.classList.remove("modal-open");
     return () => document.body.classList.remove("modal-open");
   }, [showModal]);
+
+  
+  useEffect(() => {
+    if (alert.message) {
+      const timer = setTimeout(() => setAlert({ message: "", type: "" }), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [alert]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -90,17 +99,21 @@ function EmployeeTables() {
     }
 
     if (mode === "edit") {
-      setEmployees((prev) => prev.map((emp) => (emp.id === formData.id ? formData : emp)));
+      setEmployees((prev) =>
+        prev.map((emp) => (emp.id === formData.id ? formData : emp))
+      );
+      setAlert({ message: "Employee details updated successfully!", type: "warning" });
     } else {
       const newId = `EMP${String(employees.length + 1).padStart(3, "0")}`;
       setEmployees((prev) => [...prev, { ...formData, id: newId }]);
+      setAlert({ message: "New employee added successfully!", type: "success" });
     }
 
     setShowModal(false);
     setMode("add");
   };
 
-  // ✅ CSV Upload moved outside modal
+  
   const handleCSVUpload = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -121,7 +134,7 @@ function EmployeeTables() {
       });
 
       setEmployees((prev) => [...prev, ...newEmployees]);
-      alert("CSV uploaded successfully!");
+      setAlert({ message: "CSV uploaded successfully!", type: "info" });
     };
     reader.readAsText(file);
   };
@@ -132,14 +145,21 @@ function EmployeeTables() {
         <h5>EMPLOYEE DETAILS</h5>
       </div>
 
+      
+      {alert.message && (
+        <div className={`alert alert-${alert.type} alert-dismissible fade show`} role="alert">
+          {alert.message}
+        </div>
+      )}
+
       <div className="card shadow-sm">
         <div className="card-body">
-          {/* ✅ Search + Add Employee + CSV Icon */}
+          
           <div className="d-flex justify-content-between align-items-center mb-3">
             <input type="text" className="form-control w-25" placeholder="Search employees..." />
 
             <div className="d-flex align-items-center">
-              {/* CSV Upload Icon */}
+              
               <label htmlFor="csvUpload" className="btn btn-outline-secondary me-2 mb-0">
                 <i className="bi bi-upload" title="Upload CSV"></i>
               </label>
@@ -151,7 +171,6 @@ function EmployeeTables() {
                 style={{ display: "none" }}
               />
 
-              {/* Add Employee Button */}
               <button className="btn btn-primary" onClick={handleAdd}>
                 <i className="bi bi-plus-circle me-2" /> Add Employee
               </button>
@@ -205,7 +224,7 @@ function EmployeeTables() {
             </table>
           </div>
 
-          {/* Pagination */}
+          
           <nav>
             <ul className="pagination justify-content-end mt-3 mb-0">
               <li className="page-item disabled">
@@ -298,7 +317,7 @@ function EmployeeTables() {
                           disabled={mode === "view"}
                           className="form-select"
                         >
-                          <option value="">Select Role</option>
+                          <option value="">Select Designation</option>
                           <option>Frontend</option>
                           <option>Backend</option>
                           <option>Database</option>
@@ -319,7 +338,7 @@ function EmployeeTables() {
                       </div>
 
                       <div className="col-md-6">
-                        <label className="form-label">Manager</label>
+                        <label className="form-label">Role</label>
                         <select
                           name="manager"
                           value={formData.manager}
@@ -327,10 +346,10 @@ function EmployeeTables() {
                           disabled={mode === "view"}
                           className="form-select"
                         >
-                          <option value="">Select Manager</option>
-                          <option>Mark</option>
-                          <option>Vijay Kumar</option>
-                          <option>Haritha</option>
+                          <option value="">Select Role</option>
+                          <option>Admin</option>
+                          <option>Manager</option>
+                          <option>Employee</option>
                         </select>
                       </div>
                     </div>

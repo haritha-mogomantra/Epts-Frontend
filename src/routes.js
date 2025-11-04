@@ -7,19 +7,19 @@ const Typography = React.lazy(() => import('./views/theme/typography/Typography'
 
 // Base
 const employeedetails = React.lazy(() => import('./views/base/employeedetails/employeedetails'))
-const employeeperformance = React.lazy(() => import('./views/base/employeeperformance/employeeperformance'))
+const employeeperformance = React.lazy(() => import('./views/base/employeeperformance/EmployeePerformance'))
 const Cards = React.lazy(() => import('./views/base/cards/Cards'))
 const Carousels = React.lazy(() => import('./views/base/carousels/Carousels'))
 const Collapses = React.lazy(() => import('./views/base/collapses/Collapses'))
 const ListGroups = React.lazy(() => import('./views/base/list-groups/ListGroups'))
 const Navs = React.lazy(() => import('./views/base/navs/Navs'))
 const Paginations = React.lazy(() => import('./views/base/paginations/Paginations'))
-const Placeholders = React.lazy(() => import('./views/base/placeholders/Placeholders'))
-const Popovers = React.lazy(() => import('./views/base/popovers/Popovers'))
-const Progress = React.lazy(() => import('./views/base/progress/Progress'))
-const Spinners = React.lazy(() => import('./views/base/spinners/Spinners'))
+
+
+
+
 const Tabs = React.lazy(() => import('./views/base/tabs/Tabs'))
-const Tables = React.lazy(() => import('./views/base/tables/Tables'))
+
 const Tooltips = React.lazy(() => import('./views/base/tooltips/Tooltips'))
 
 //new
@@ -70,12 +70,12 @@ const routes = [
   { path: '/base/list-groups', name: 'List Groups', element: ListGroups },
   { path: '/base/navs', name: 'Navs', element: Navs },
   { path: '/base/paginations', name: 'Paginations', element: Paginations },
-  { path: '/base/placeholders', name: 'Placeholders', element: Placeholders },
-  { path: '/base/popovers', name: 'Popovers', element: Popovers },
-  { path: '/base/progress', name: 'Progress', element: Progress },
-  { path: '/base/spinners', name: 'Spinners', element: Spinners },
+  
+  
+  
+  
   { path: '/base/tabs', name: 'Tabs', element: Tabs },
-  { path: '/base/tables', name: 'Tables', element: Tables },
+  
   { path: '/base/tooltips', name: 'Tooltips', element: Tooltips },
   { path: '/buttons', name: 'Buttons', element: Buttons, exact: true },
   { path: '/buttons/buttons', name: 'Buttons', element: Buttons },

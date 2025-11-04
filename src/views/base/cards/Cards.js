@@ -14,9 +14,10 @@ const LoginDetails = () => {
   const [search, setSearch] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [currentPage, setCurrentPage] = useState(1);
+  const [alert, setAlert] = useState({ show: false, message: "", type: "" });
+
   const recordsPerPage = 4;
 
-  
   const filteredData = employees.filter(
     (emp) =>
       emp.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -24,7 +25,6 @@ const LoginDetails = () => {
       emp.username.toLowerCase().includes(search.toLowerCase())
   );
 
-  
   const sortedData = [...filteredData].sort((a, b) => {
     if (!sortConfig.key) return 0;
     if (a[sortConfig.key] < b[sortConfig.key])
@@ -34,13 +34,11 @@ const LoginDetails = () => {
     return 0;
   });
 
-  
   const lastIndex = currentPage * recordsPerPage;
   const firstIndex = lastIndex - recordsPerPage;
   const currentData = sortedData.slice(firstIndex, lastIndex);
   const totalPages = Math.ceil(sortedData.length / recordsPerPage);
 
-  
   const handleSort = (key) => {
     let direction = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
@@ -49,7 +47,6 @@ const LoginDetails = () => {
     setSortConfig({ key, direction });
   };
 
-  
   const regeneratePassword = (empId) => {
     const newPass = Math.random().toString(36).slice(-8);
     setEmployees((prev) =>
@@ -57,10 +54,18 @@ const LoginDetails = () => {
         emp.id === empId ? { ...emp, password: newPass } : emp
       )
     );
-    alert(`Password regenerated for ${empId}`);
+
+    // ✅ Show success alert instead of normal alert()
+    setAlert({
+      show: true,
+      type: "success",
+      message: `Password regenerated successfully for ${empId}.`,
+    });
+
+    // Auto hide alert after 3 seconds
+    setTimeout(() => setAlert({ show: false, message: "", type: "" }), 3000);
   };
 
-  
   const getSortIcon = (key) => {
     if (sortConfig.key === key) {
       return sortConfig.direction === "asc" ? "▲" : "▼";
@@ -70,15 +75,27 @@ const LoginDetails = () => {
 
   return (
     <div className="container">
+      <div className="text-dark mb-3">
+        <h5>LOGIN CREDENTIALS</h5>
+      </div>
 
-       <div className="text-Dark">
-          <h5>LOGIN CREDENTIALS</h5>
-        </div>
       <div className="card shadow border-0">
-       
-
         <div className="card-body">
-          
+          {/* ✅ Bootstrap Alert */}
+          {alert.show && (
+            <div
+              className={`alert alert-${alert.type} alert-dismissible fade show`}
+              role="alert"
+            >
+              {alert.message}
+              <button
+                type="button"
+                className="btn-close"
+                onClick={() => setAlert({ show: false, message: "", type: "" })}
+              ></button>
+            </div>
+          )}
+
           <div className="mb-3">
             <input
               type="text"
@@ -89,7 +106,6 @@ const LoginDetails = () => {
             />
           </div>
 
-        
           <div className="table-responsive">
             <table className="table table-bordered table-hover align-middle text-center">
               <thead className="table-light">
@@ -120,7 +136,7 @@ const LoginDetails = () => {
                       <td>{emp.password}</td>
                       <td>
                         <button
-                          className="btn btn-warning btn-sm"
+                          className="btn btn-warning btn-sm text-white"
                           onClick={() => regeneratePassword(emp.id)}
                         >
                           Regenerate Password
@@ -139,15 +155,46 @@ const LoginDetails = () => {
             </table>
           </div>
 
-          
-           <nav>
+          {/* ✅ Pagination */}
+          <nav>
             <ul className="pagination justify-content-end mt-3 mb-0">
-              <li className="page-item disabled">
-                <a className="page-link" href="#!">Previous</a>
+              <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                <button
+                  className="page-link"
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                >
+                  Previous
+                </button>
               </li>
-              <li className="page-item active"><a className="page-link" href="#!">1</a></li>
-              <li className="page-item"><a className="page-link" href="#!">2</a></li>
-              <li className="page-item"><a className="page-link" href="#!">Next</a></li>
+
+              {[...Array(totalPages)].map((_, i) => (
+                <li
+                  key={i}
+                  className={`page-item ${currentPage === i + 1 ? "active" : ""}`}
+                >
+                  <button
+                    className="page-link"
+                    onClick={() => setCurrentPage(i + 1)}
+                  >
+                    {i + 1}
+                  </button>
+                </li>
+              ))}
+
+              <li
+                className={`page-item ${
+                  currentPage === totalPages ? "disabled" : ""
+                }`}
+              >
+                <button
+                  className="page-link"
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(p + 1, totalPages))
+                  }
+                >
+                  Next
+                </button>
+              </li>
             </ul>
           </nav>
         </div>

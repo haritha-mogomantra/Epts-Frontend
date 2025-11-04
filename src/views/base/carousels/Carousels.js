@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { useLocation } from "react-router-dom";
 
-// Dummy employee info database
+
 const employeeDatabase = {
   1001: { name: "Anil", department: "Fullstack", manager: "Haritha" },
   1002: { name: "Gopi", department: "Backend", manager: "Haritha" },
@@ -10,7 +10,7 @@ const employeeDatabase = {
   1004: { name: "Srinivas", department: "Testing", manager: "Haritha" },
 };
 
-// Dummy weekly performance data
+
 const performanceDatabase = {
   1001: {
     "Week 43 (Oct 20 - Oct 26)": {
@@ -88,7 +88,7 @@ const performanceDatabase = {
   },
 };
 
-// 15 measurement fields
+
 const measurementFields = [
   "Communication Skills",
   "Multi Tasking Abilities",
@@ -152,7 +152,7 @@ const ViewPerformance = () => {
 
   return (
     <div className="container mt-2">
-      {/* Header row */}
+      
       <div className="d-flex justify-content-between align-items-center mb-2">
         <h5>EMPLOYEE PERFORMANCE</h5>
         <div style={{ width: "250px" }}>
@@ -170,7 +170,7 @@ const ViewPerformance = () => {
         </div>
       </div>
 
-      {/* Employee info section */}
+      
       <div className="card mb-3 p-3">
         <div className="row">
           <div className="col-md-3">
@@ -192,7 +192,7 @@ const ViewPerformance = () => {
         </div>
       </div>
 
-      {/* Performance Table */}
+      
       <div className="table-responsive">
         <table className="table table-bordered align-middle text-start">
           <thead className="table-primary">

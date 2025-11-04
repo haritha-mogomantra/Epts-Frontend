@@ -30,15 +30,17 @@ function DynamicPerformanceReport() {
   const managers = [...new Set(employees.map((e) => e.manager))];
   const departments = [...new Set(employees.map((e) => e.department))];
 
-  const [reportType, setReportType] = useState("");
+  // ✅ Default to "weekly" report
+  const [reportType, setReportType] = useState("weekly");
   const [selectedOption, setSelectedOption] = useState("");
-  const [selectedWeek, setSelectedWeek] = useState("");
+  const [selectedWeek2, setSelectedWeek2] = useState("");
   const [filteredData, setFilteredData] = useState([]);
   const [isPrinting, setIsPrinting] = useState(false);
 
   const chartRef = useRef(null);
   const reportRef = useRef(null);
 
+  // ✅ Load latest weekly report automatically on page load
   useEffect(() => {
     const ranked = employees
       .slice()
@@ -52,7 +54,6 @@ function DynamicPerformanceReport() {
     let ranked = [];
     let lastScore = null;
     let lastRank = 0;
-
     sorted.forEach((emp, index) => {
       if (emp.score === lastScore) ranked.push({ ...emp, rank: lastRank });
       else {
@@ -61,21 +62,19 @@ function DynamicPerformanceReport() {
         ranked.push({ ...emp, rank: lastRank });
       }
     });
-
     return ranked;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     let data = [];
-
-    if (reportType === "weekly" && selectedWeek) data = employees;
-    else if (reportType === "manager" && selectedOption && selectedWeek)
+    if (reportType === "weekly" && selectedWeek2) data = employees;
+    else if (reportType === "manager" && selectedOption && selectedWeek2)
       data =
         selectedOption === "all"
           ? employees
           : employees.filter((e) => e.manager === selectedOption);
-    else if (reportType === "department" && selectedOption && selectedWeek)
+    else if (reportType === "department" && selectedOption && selectedWeek2)
       data =
         selectedOption === "all"
           ? employees
@@ -84,7 +83,6 @@ function DynamicPerformanceReport() {
       alert("⚠️ Please select all required fields!");
       return;
     }
-
     const ranked = generateRankedData(data);
     setFilteredData(ranked);
   };
@@ -112,154 +110,141 @@ function DynamicPerformanceReport() {
       alert("No data to export");
       return;
     }
-    try {
-      const XLSX = await import("xlsx");
-      const ws = XLSX.utils.json_to_sheet(rows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Report");
-      XLSX.writeFile(wb, filename);
-    } catch (err) {
-      alert("Export failed, using CSV fallback");
-    }
+    const XLSX = await import("xlsx");
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Report");
+    XLSX.writeFile(wb, filename);
   };
 
   const handlePrint = async () => {
     if (!reportRef.current) return alert("Nothing to print");
     setIsPrinting(true);
-    try {
-      const printWindow = window.open("", "_blank", "noopener,noreferrer");
-      const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
-        .map((l) => l.href)
-        .map((href) => `<link rel="stylesheet" href="${href}">`)
-        .join("\n");
-      const content = reportRef.current.innerHTML;
-      printWindow.document.write(`
-        <html>
-          <head>${links}</head>
-          <body>${content}</body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
-    } finally {
-      setIsPrinting(false);
-    }
+    const printWindow = window.open("", "_blank", "noopener,noreferrer");
+    const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+      .map((l) => l.href)
+      .map((href) => `<link rel="stylesheet" href="${href}">`)
+      .join("\n");
+    const content = reportRef.current.innerHTML;
+    printWindow.document.write(`
+      <html>
+        <head>${links}</head>
+        <body>${content}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+    setIsPrinting(false);
+  };
+
+  const reportTitleMap = {
+    weekly: "Weekly Report",
+    manager: "Manager Wise Report",
+    department: "Department Wise Report",
   };
 
   return (
-    <div className="container py-3">
-      <h5 className="text-dark mb-3">EMPLOYEE PERFORMANCE REPORTS</h5>
+    <div className="container py-4">
+      <h5 className="fw-bold mb-4 text-dark">EMPLOYEE PERFORMANCE REPORTS</h5>
 
-      <div className="row g-3">
-        {["weekly", "manager", "department"].map((type) => (
-          <div key={type} className="col-12 col-md-6 col-lg-4">
-            <div
-              className={`card shadow-sm border-0 ${
-                reportType === type ? "border-primary" : ""
-              }`}
-            >
-              <div className="card-body">
-                <div className="form-check">
-                  <input
-                    type="radio"
-                    name="reportType"
-                    id={`rt-${type}`}
-                    value={type}
-                    className="form-check-input"
-                    checked={reportType === type}
-                    onChange={(e) => {
-                      setReportType(e.target.value);
-                      setSelectedOption("");
-                      setSelectedWeek("");
-                      setFilteredData([]);
-                    }}
-                  />
-                  <label
-                    htmlFor={`rt-${type}`}
-                    className="form-check-label text-capitalize fw-semibold ms-2"
-                  >
-                    {type} Report
-                  </label>
-                </div>
-
-                {reportType === type && (
-                  <div className="mt-3 animate__animated animate__fadeIn">
-                    <div className="mb-3">
-                      <label className="form-label fw-bold">Select Week</label>
-                      <input
-                        type="week"
-                        className="form-control"
-                        value={selectedWeek}
-                        onChange={(e) => setSelectedWeek(e.target.value)}
-                      />
-                    </div>
-
-                    {(type === "manager" || type === "department") && (
-                      <div className="mb-3">
-                        <label className="form-label fw-bold">
-                          {type === "manager"
-                            ? "Select Manager"
-                            : "Select Department"}
-                        </label>
-                        <select
-                          className="form-select"
-                          value={selectedOption}
-                          onChange={(e) => setSelectedOption(e.target.value)}
-                        >
-                          <option value="">Select</option>
-                          <option value="all">
-                            {type === "manager"
-                              ? "All Managers"
-                              : "All Departments"}
-                          </option>
-                          {(type === "manager" ? managers : departments).map(
-                            (item) => (
-                              <option key={item} value={item}>
-                                {item}
-                              </option>
-                            )
-                          )}
-                        </select>
-                      </div>
-                    )}
-
-                    <button className="btn btn-primary w-100" onClick={handleSubmit}>
-                      Generate Report
-                    </button>
-                  </div>
-                )}
-              </div>
+      <form onSubmit={handleSubmit} className="card shadow-sm border-0 p-3 mb-4">
+        <div className="d-flex flex-wrap align-items-center gap-3">
+          <label className="fw-semibold me-2">Select Report Type:</label>
+          {["weekly", "manager", "department"].map((type) => (
+            <div key={type} className="form-check form-check-inline">
+              <input
+                className="form-check-input"
+                type="radio"
+                name="reportType"
+                id={`type-${type}`}
+                value={type}
+                checked={reportType === type}
+                onChange={(e) => {
+                  setReportType(e.target.value);
+                  setSelectedOption("");
+                  setSelectedWeek2("");
+                  setFilteredData([]);
+                }}
+              />
+              <label
+                className="form-check-label text-capitalize"
+                htmlFor={`type-${type}`}
+              >
+                {reportTitleMap[type]}
+              </label>
             </div>
+          ))}
+        </div>
+
+        <div className="row align-items-end mt-4">
+          <div className="col-md-3">
+            <label className="form-label fw-semibold">Select Week:</label>
+            <input
+              type="week"
+              className="form-control"
+              value={selectedWeek2}
+              onChange={(e) => setSelectedWeek2(e.target.value)}
+            />
           </div>
-        ))}
-      </div>
+
+          {(reportType === "manager" || reportType === "department") && (
+            <div className="col-md-3">
+              <label className="form-label fw-semibold">
+                {reportType === "manager" ? "Select Manager:" : "Select Department:"}
+              </label>
+              <select
+                className="form-select"
+                value={selectedOption}
+                onChange={(e) => setSelectedOption(e.target.value)}
+              >
+                <option value="">Select</option>
+                <option value="all">
+                  {reportType === "manager" ? "All Managers" : "All Departments"}
+                </option>
+                {(reportType === "manager" ? managers : departments).map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="col-md-3">
+            <button type="submit" className="btn btn-primary w-100">
+              Submit
+            </button>
+          </div>
+        </div>
+      </form>
 
       {filteredData.length > 0 && (
-        <div ref={reportRef} className="mt-5">
-          <div className="d-flex justify-content-end gap-3 mb-3">
-            <i
-              className="bi bi-file-earmark-excel text-success fs-4"
-              role="button"
-              title="Export Excel"
-              onClick={() => exportExcel(filteredData, "report.xlsx")}
-            ></i>
-            <i
-              className={`bi bi-printer fs-4 ${
-                isPrinting ? "text-secondary" : "text-primary"
-              }`}
-              role="button"
-              title="Print Report"
-              onClick={handlePrint}
-            ></i>
+        <div ref={reportRef}>
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h6 className="fw-bold mb-0">
+              📋 {reportTitleMap[reportType]}{" "}
+              {selectedWeek2 && `(${selectedWeek2})`}
+            </h6>
+            <div className="d-flex gap-3">
+              <i
+                className="bi bi-file-earmark-excel text-success fs-4"
+                role="button"
+                title="Export Excel"
+                onClick={() => exportExcel(filteredData, "report.xlsx")}
+              ></i>
+              <i
+                className={`bi bi-printer fs-4 ${
+                  isPrinting ? "text-secondary" : "text-primary"
+                }`}
+                role="button"
+                title="Print Report"
+                onClick={handlePrint}
+              ></i>
+            </div>
           </div>
 
-          <h5 className="fw-bold mb-3 text-start">
-            📋 {reportType.toUpperCase()} REPORT{" "}
-            {selectedWeek && `(${selectedWeek})`}
-          </h5>
-
           <div className="table-responsive">
-            <table className="table table-bordered table-striped text-center">
+            <table className="table table-bordered text-center align-middle">
               <thead className="table-dark">
                 <tr>
                   <th>ID</th>
@@ -285,10 +270,8 @@ function DynamicPerformanceReport() {
             </table>
           </div>
 
-          <div className="mt-4">
-            <h6 className="fw-bold mb-2 text-start">📈 Performance Chart</h6>
-            <Bar ref={chartRef} data={chartData} options={chartOptions} />
-          </div>
+          <h6 className="fw-bold mt-4 mb-2">📈 Performance Chart</h6>
+          <Bar ref={chartRef} data={chartData} options={chartOptions} />
         </div>
       )}
     </div>
