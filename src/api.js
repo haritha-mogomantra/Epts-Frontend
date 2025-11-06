@@ -1,15 +1,13 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://127.0.0.1:8000/api/",
+  baseURL: "http://localhost:8000/api", // your backend base URL
 });
 
-export function setAuthToken(token) {
-  if (token) {
-    API.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-  } else {
-    delete API.defaults.headers.common["Authorization"];
-  }
-}
+// Example endpoints (adjust to your backend)
+export const getEmployees = () => API.get("/employees/");
+export const addEmployee = (data) => API.post("/employees/", data);
+export const updateEmployee = (id, data) => API.put(`/employees/${id}/`, data);
+export const deleteEmployee = (id) => API.delete(`/employees/${id}/`);
 
 export default API;

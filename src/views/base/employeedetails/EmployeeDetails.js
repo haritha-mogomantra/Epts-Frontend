@@ -3,51 +3,77 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
 function EmployeeTables() {
-  const [employees, setEmployees] = useState([
-    {
-      id: "EMP001",
-      firstName: "Haritha",
-      lastName: "",
-      email: "haritha@gmail.com",
-      role: "Manager",
-      joiningDate: "2023-06-15",
-      department: "HR",
-      manager: "Mark",
-    },
-    {
-      id: "EMP002",
-      firstName: "Eswar",
-      lastName: "",
-      email: "eswar@gmail.com",
-      role: "Developer",
-      joiningDate: "2022-09-01",
-      department: "IT",
-      manager: "Haritha",
-    },
-  ]);
+  const API_URL = "http://127.0.0.1:8000/api/employee/employees/";
+  const CSV_UPLOAD_URL = "http://127.0.0.1:8000/api/employee/upload_csv/";
+  const MANAGER_LIST_URL = "http://127.0.0.1:8000/api/employee/employees/managers/";
+
+  const [employees, setEmployees] = useState([]);
+  const [managers, setManagers] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [alert, setAlert] = useState({ message: "", type: "" });
 
   const [formData, setFormData] = useState({
-    id: "",
-    firstName: "",
-    lastName: "",
+    id: null,
+    emp_id: "",
+    first_name: "",
+    last_name: "",
     email: "",
-    department: "",
+    department_code: "",
     role: "",
-    joiningDate: "",
+    designation: "",
+    project_name: "",     // ✅ NEW FIELD
+    joining_date: "",
     manager: "",
   });
 
-  const [mode, setMode] = useState("add"); // "add" | "edit" | "view"
+  const [mode, setMode] = useState("add");
   const [showModal, setShowModal] = useState(false);
-  const [alert, setAlert] = useState({ message: "", type: "" });
+
+  const managerLabel = (m) => {
+    const name =
+      m.full_name ||
+      `${m.user?.first_name || ""} ${m.user?.last_name || ""}`.trim();
+    const id = m.emp_id || m.user?.emp_id || "";
+    return id ? `${name} (${id})` : name || "Unknown";
+  };
+
+  const fetchManagers = async () => {
+    try {
+      const res = await fetch(MANAGER_LIST_URL);
+      const data = await res.json();
+      setManagers(
+        (data.results || data).map((m) => ({
+          emp_id: m.emp_id || m.user?.emp_id || "",
+          full_name:
+            m.full_name ||
+            `${m.user?.first_name || ""} ${m.user?.last_name || ""}`.trim(),
+        }))
+      );
+    } catch {
+      console.error("Error fetching manager list");
+    }
+  };
+
+  const fetchEmployees = async (page = 1) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}?page=${page}`);
+      const data = await res.json();
+      setEmployees(data.results);
+      setTotalPages(Math.ceil(data.count / 10));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (showModal) document.body.classList.add("modal-open");
-    else document.body.classList.remove("modal-open");
-    return () => document.body.classList.remove("modal-open");
-  }, [showModal]);
+    fetchEmployees(currentPage);
+    fetchManagers();
+  }, [currentPage]);
 
-  
   useEffect(() => {
     if (alert.message) {
       const timer = setTimeout(() => setAlert({ message: "", type: "" }), 3000);
@@ -55,20 +81,30 @@ function EmployeeTables() {
     }
   }, [alert]);
 
+  const filteredEmployees = employees.filter((emp) => {
+    const text = searchTerm.toLowerCase();
+    return (
+      emp.emp_id?.toLowerCase().includes(text) ||
+      emp.full_name?.toLowerCase().includes(text)
+    );
+  });
+
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((p) => ({ ...p, [name]: value }));
+    setFormData((p) => ({ ...p, [e.target.name]: e.target.value }));
   };
 
   const handleAdd = () => {
     setFormData({
-      id: "",
-      firstName: "",
-      lastName: "",
+      id: null,
+      emp_id: "",
+      first_name: "",
+      last_name: "",
       email: "",
-      department: "",
+      department_code: "",
       role: "",
-      joiningDate: "",
+      designation: "",
+      project_name: "",     // ✅ NEW
+      joining_date: "",
       manager: "",
     });
     setMode("add");
@@ -76,100 +112,104 @@ function EmployeeTables() {
   };
 
   const handleEdit = (emp) => {
-    setFormData(emp);
+    setFormData({
+      id: emp.id,
+      emp_id: emp.emp_id,
+      first_name: emp.user?.first_name || "",
+      last_name: emp.user?.last_name || "",
+      email: emp.email,
+      department_code: emp.department_code || emp.department?.code || "",
+      role: emp.role || "",
+      designation: emp.designation || "",
+      project_name: emp.project_name || "",  // ✅ NEW
+      joining_date: emp.joining_date || "",
+      manager: emp.manager_name !== "Not Assigned" ? emp.manager_name : "",
+    });
+
     setMode("edit");
     setShowModal(true);
   };
 
   const handleView = (emp) => {
-    setFormData(emp);
+    handleEdit(emp);
     setMode("view");
-    setShowModal(true);
   };
 
-  const handleClose = () => {
-    setShowModal(false);
-    setMode("add");
-  };
+  const handleSave = async () => {
+    setLoading(true);
 
-  const handleSave = () => {
-    if (!formData.firstName || !formData.email) {
-      alert("First name and email are required");
-      return;
-    }
+    const method = mode === "edit" ? "PATCH" : "POST";
+    const url =
+      mode === "edit"
+        ? `${API_URL}${formData.emp_id}/` // ✅ CORRECT PATCH URL
+        : API_URL;
 
-    if (mode === "edit") {
-      setEmployees((prev) =>
-        prev.map((emp) => (emp.id === formData.id ? formData : emp))
-      );
-      setAlert({ message: "Employee details updated successfully!", type: "warning" });
-    } else {
-      const newId = `EMP${String(employees.length + 1).padStart(3, "0")}`;
-      setEmployees((prev) => [...prev, { ...formData, id: newId }]);
-      setAlert({ message: "New employee added successfully!", type: "success" });
-    }
+    const payload = { ...formData };
+    delete payload.emp_id;
+    delete payload.id;
 
-    setShowModal(false);
-    setMode("add");
-  };
-
-  
-  const handleCSVUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const csvText = e.target.result;
-      const rows = csvText.trim().split("\n");
-      const headers = rows[0].split(",").map((h) => h.trim());
-      const newEmployees = rows.slice(1).map((row, idx) => {
-        const values = row.split(",").map((v) => v.trim());
-        const obj = {};
-        headers.forEach((h, i) => {
-          obj[h] = values[i] || "";
-        });
-        obj.id = `EMP${String(employees.length + idx + 1).padStart(3, "0")}`;
-        return obj;
+    try {
+      await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
-      setEmployees((prev) => [...prev, ...newEmployees]);
-      setAlert({ message: "CSV uploaded successfully!", type: "info" });
-    };
-    reader.readAsText(file);
+      fetchEmployees(currentPage);
+      setShowModal(false);
+      setAlert({
+        message: mode === "edit" ? "Employee Updated Successfully!" : "Employee Added Successfully!",
+        type: "success",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCSVUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setLoading(true);
+
+    const formDataCSV = new FormData();
+    formDataCSV.append("file", file);
+
+    try {
+      await fetch(CSV_UPLOAD_URL, { method: "POST", body: formDataCSV });
+      fetchEmployees();
+      setAlert({ message: "CSV Uploaded Successfully!", type: "info" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="container py-3">
-      <div className="text-dark mb-2">
-        <h5>EMPLOYEE DETAILS</h5>
-      </div>
+      <h5 className="mb-3">EMPLOYEE DETAILS</h5>
 
-      
       {alert.message && (
-        <div className={`alert alert-${alert.type} alert-dismissible fade show`} role="alert">
+        <div className={`alert alert-${alert.type} fade show`} role="alert">
           {alert.message}
         </div>
       )}
 
       <div className="card shadow-sm">
         <div className="card-body">
-          
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <input type="text" className="form-control w-25" placeholder="Search employees..." />
 
-            <div className="d-flex align-items-center">
-              
+          <div className="d-flex justify-content-between mb-3">
+            <input
+              type="text"
+              placeholder="Search by Name or Emp ID..."
+              className="form-control w-25"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+
+            <div>
               <label htmlFor="csvUpload" className="btn btn-outline-secondary me-2 mb-0">
-                <i className="bi bi-upload" title="Upload CSV"></i>
+                <i className="bi bi-upload"></i>
               </label>
-              <input
-                id="csvUpload"
-                type="file"
-                accept=".csv"
-                onChange={handleCSVUpload}
-                style={{ display: "none" }}
-              />
+              <input id="csvUpload" type="file" accept=".csv" onChange={handleCSVUpload} style={{ display: "none" }} />
 
               <button className="btn btn-primary" onClick={handleAdd}>
                 <i className="bi bi-plus-circle me-2" /> Add Employee
@@ -177,201 +217,199 @@ function EmployeeTables() {
             </div>
           </div>
 
-          
-          <div className="table-responsive">
-            <table className="table table-bordered table-striped text-center mb-0">
-              <thead className="table-dark">
-                <tr>
-                  <th>Emp ID</th>
-                  <th>Full Name</th>
-                  <th>Email</th>
-                  <th>Designation</th>
-                  <th>Joining Date</th>
-                  <th>Department</th>
-                  <th>Manager</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {employees.map((emp) => (
-                  <tr key={emp.id}>
-                    <td>{emp.id}</td>
-                    <td>{`${emp.firstName} ${emp.lastName}`.trim()}</td>
-                    <td>{emp.email}</td>
-                    <td>{emp.role}</td>
-                    <td>{emp.joiningDate}</td>
-                    <td>{emp.department}</td>
-                    <td>{emp.manager}</td>
-                    <td>
-                      <button
-                        className="btn btn-sm btn-info me-2"
-                        title="Edit"
-                        onClick={() => handleEdit(emp)}
-                      >
-                        <i className="bi bi-pencil-square text-white" />
-                      </button>
-                      <button
-                        className="btn btn-sm btn-warning"
-                        title="View"
-                        onClick={() => handleView(emp)}
-                      >
-                        <i className="bi bi-eye text-white" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="table-responsive" style={{ overflowX: "auto" }}>
+  <table
+    className="table table-bordered table-striped text-center align-middle"
+    style={{ whiteSpace: "nowrap", tableLayout: "auto" }}
+  >
+    <thead className="table-light">
+      <tr>
+        <th style={{ minWidth: "100px" }}>Emp ID</th>
+        <th style={{ minWidth: "150px" }}>Name</th>
+        <th style={{ minWidth: "200px" }}>Email</th>
+        <th style={{ minWidth: "150px" }}>Designation</th>
+        <th style={{ minWidth: "150px" }}>Project</th>
+        <th style={{ minWidth: "150px" }}>Manager</th>
+        <th style={{ minWidth: "130px" }}>Joining Date</th>
+        <th style={{ minWidth: "150px" }}>Department</th>
+        <th style={{ minWidth: "180px" }}>Actions</th>
+      </tr>
+    </thead>
 
-          
-          <nav>
-            <ul className="pagination justify-content-end mt-3 mb-0">
-              <li className="page-item disabled">
-                <a className="page-link" href="#!">Previous</a>
-              </li>
-              <li className="page-item active"><a className="page-link" href="#!">1</a></li>
-              <li className="page-item"><a className="page-link" href="#!">2</a></li>
-              <li className="page-item"><a className="page-link" href="#!">Next</a></li>
-            </ul>
-          </nav>
+    <tbody>
+      {filteredEmployees.map((emp) => (
+        <tr key={emp.id}>
+          <td>{emp.emp_id}</td>
+          <td>{emp.full_name}</td>
+          <td>{emp.email}</td>
+          <td>{emp.designation}</td>
+          <td>{emp.project_name || "-"}</td>
+          <td>{emp.manager_name || "Not Assigned"}</td>
+          <td>{emp.joining_date}</td>
+          <td>{emp.department_name}</td>
+          <td className="text-nowrap">
+            <div className="d-flex justify-content-center align-items-center gap-2">
+              <button
+                className="btn btn-sm btn-info"
+                onClick={() => handleEdit(emp)}
+              >
+                Edit
+              </button>
+              <button
+                className="btn btn-sm btn-warning"
+                onClick={() => handleView(emp)}
+              >
+                View
+              </button>
+            </div>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
+
+          <div className="d-flex justify-content-center mt-3 flex-wrap">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`btn mx-1 ${page === currentPage ? "btn-primary" : "btn-outline-primary"}`}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      
       {showModal && (
         <>
-          <div className="modal fade show" style={{ display: "block" }} tabIndex="-1" aria-modal="true" role="dialog">
+          <div className="modal fade show" style={{ display: "block" }}>
             <div className="modal-dialog modal-dialog-centered modal-lg">
               <div className="modal-content">
                 <div className="modal-header bg-primary text-white">
-                  <h5 className="modal-title">
+                  <h5>
                     {mode === "add" ? "Add New Employee" : mode === "edit" ? "Edit Employee" : "View Employee"}
                   </h5>
-                  <button type="button" className="btn-close" aria-label="Close" onClick={handleClose} />
+                  <button className="btn-close btn-close-white" onClick={() => setShowModal(false)} />
                 </div>
 
                 <div className="modal-body">
-                  <form onSubmit={(e) => e.preventDefault()}>
-                    <div className="row g-3">
-                      <div className="col-md-6">
-                        <label className="form-label">First Name</label>
-                        <input
-                          name="firstName"
-                          value={formData.firstName}
-                          onChange={handleInputChange}
-                          readOnly={mode === "view"}
-                          className="form-control"
-                          placeholder="Enter first name"
-                        />
-                      </div>
+                  <div className="row g-3">
 
-                      <div className="col-md-6">
-                        <label className="form-label">Last Name</label>
-                        <input
-                          name="lastName"
-                          value={formData.lastName}
-                          onChange={handleInputChange}
-                          readOnly={mode === "view"}
-                          className="form-control"
-                          placeholder="Enter last name"
-                        />
-                      </div>
-
-                      <div className="col-md-6">
-                        <label className="form-label">Email</label>
-                        <input
-                          name="email"
-                          value={formData.email}
-                          onChange={handleInputChange}
-                          readOnly={mode === "view"}
-                          type="email"
-                          className="form-control"
-                          placeholder="Enter email"
-                        />
-                      </div>
-
-                      <div className="col-md-6">
-                        <label className="form-label">Department</label>
-                        <select
-                          name="department"
-                          value={formData.department}
-                          onChange={handleInputChange}
-                          disabled={mode === "view"}
-                          className="form-select"
-                        >
-                          <option value="">Select Department</option>
-                          <option>HR</option>
-                          <option>IT</option>
-                          <option>Finance</option>
-                          <option>Marketing</option>
-                        </select>
-                      </div>
-
-                      <div className="col-md-6">
-                        <label className="form-label">Designation</label>
-                        <select
-                          name="role"
-                          value={formData.role}
-                          onChange={handleInputChange}
-                          disabled={mode === "view"}
-                          className="form-select"
-                        >
-                          <option value="">Select Designation</option>
-                          <option>Frontend</option>
-                          <option>Backend</option>
-                          <option>Database</option>
-                          <option>Testing</option>
-                        </select>
-                      </div>
-
-                      <div className="col-md-6">
-                        <label className="form-label">Joining Date</label>
-                        <input
-                          name="joiningDate"
-                          value={formData.joiningDate}
-                          onChange={handleInputChange}
-                          readOnly={mode === "view"}
-                          type="date"
-                          className="form-control"
-                        />
-                      </div>
-
-                      <div className="col-md-6">
-                        <label className="form-label">Role</label>
-                        <select
-                          name="manager"
-                          value={formData.manager}
-                          onChange={handleInputChange}
-                          disabled={mode === "view"}
-                          className="form-select"
-                        >
-                          <option value="">Select Role</option>
-                          <option>Admin</option>
-                          <option>Manager</option>
-                          <option>Employee</option>
-                        </select>
-                      </div>
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        First Name <span style={{ color: "red" }}>*</span>
+                      </label>
+                      <input className="form-control" name="first_name" value={formData.first_name} onChange={handleInputChange} readOnly={mode==="view"} />
                     </div>
-                  </form>
+
+                    <div className="col-md-6">
+                      <label className="form-label">Last Name</label>
+                      <input className="form-control" name="last_name" value={formData.last_name} onChange={handleInputChange} readOnly={mode==="view"} />
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        Email <span style={{ color: "red" }}>*</span>
+                      </label>
+                      <input className="form-control" type="email" name="email" value={formData.email} onChange={handleInputChange} readOnly={mode==="edit" || mode==="view"} />
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        Department <span style={{ color: "red" }}>*</span>
+                      </label>
+                      <select className="form-select" name="department_code" value={formData.department_code} onChange={handleInputChange} disabled={mode==="view"}>
+                        <option value="">Select Department</option>
+                        <option value="HR">HR</option>
+                        <option value="FIN">Finance</option>
+                        <option value="ENG">Engineering</option>
+                        <option value="MKT">Marketing</option>
+                        <option value="SALES">Sales</option>
+                      </select>
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        Role <span style={{ color: "red" }}>*</span>
+                      </label>
+                      <select className="form-select" name="role" value={formData.role} onChange={handleInputChange} disabled={mode==="view"}>
+                        <option value="">Select Role</option>
+                        <option value="Manager">Manager</option>
+                        <option value="Employee">Employee</option>
+                      </select>
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label">Designation</label>
+                      <input className="form-control" name="designation" value={formData.designation} onChange={handleInputChange} readOnly={mode==="view"} />
+                    </div>
+
+                  
+                    <div className="col-md-6">
+                      <label className="form-label">Project Name</label>
+                      <input className="form-control" name="project_name" value={formData.project_name} onChange={handleInputChange} readOnly={mode==="view"} />
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label">Joining Date</label>
+                      <input className="form-control" type="date" name="joining_date" value={formData.joining_date} onChange={handleInputChange} readOnly={mode==="view"} />
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label">Manager (Select)</label>
+                      <select
+                        className="form-select"
+                        name="manager"
+                        value={formData.manager}
+                        onChange={handleInputChange}
+                        disabled={mode==="view"}
+                      >
+                        <option value="">No Manager</option>
+                        {managers.map((m) => (
+                          <option key={m.emp_id} value={m.emp_id}>
+                            {managerLabel(m)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                  </div>
                 </div>
 
-                <div className="modal-footer d-flex justify-content-between">
-                  <button type="button" className="btn btn-secondary" onClick={handleClose}>
-                    Close
-                  </button>
-                  {mode !== "view" && (
-                    <button type="button" className="btn btn-primary" onClick={handleSave}>
-                      {mode === "add" ? "Save" : "Update"}
-                    </button>
-                  )}
+                <div className="d-flex justy-space-between modal-footer">
+                  <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Close</button>
+                  {mode !== "view" && <button className="btn btn-primary" onClick={handleSave}>{mode === "add" ? "Save" : "Update"}</button>}
                 </div>
               </div>
             </div>
           </div>
+
           <div className="modal-backdrop fade show"></div>
         </>
       )}
+
+      {loading && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            background: "rgba(255, 255, 255, 0.6)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 2000
+          }}
+        >
+          <div className="spinner-border text-primary" style={{ width: "3rem", height: "3rem" }}></div>
+        </div>
+      )}
+
     </div>
   );
 }
