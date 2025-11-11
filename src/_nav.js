@@ -1,6 +1,5 @@
 import React from 'react'
 import CIcon from '@coreui/icons-react'
-
 import {
   cilBell,
   cilCalculator,
@@ -15,11 +14,14 @@ import {
   cilSpeedometer,
   cilStar,
   cilUser,
-
 } from '@coreui/icons'
 import { CNavGroup, CNavItem, CNavTitle } from '@coreui/react'
 
-const _nav = [
+// ✅ Get role from localStorage
+const role = localStorage.getItem("role");
+
+// ✅ Filter logic (DO NOT MODIFY STRUCTURE)
+let _nav = [
   {
     component: CNavGroup,
     name: 'Admin',
@@ -30,7 +32,6 @@ const _nav = [
         name: 'Dashboard',
         to: '/dashboard',
         icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />,
-
       },
       {
         component: CNavGroup,
@@ -43,7 +44,6 @@ const _nav = [
             name: 'Employee details',
             to: '/base/employeedetails',
           },
-
           {
             component: CNavItem,
             name: 'Employee Performance ',
@@ -53,11 +53,7 @@ const _nav = [
             component: CNavItem,
             name: 'Employee credentials',
             to: '/base/cards',
-
-
           },
-
-
         ],
       },
       {
@@ -65,21 +61,15 @@ const _nav = [
         name: 'Reports',
         to: '/buttons',
         icon: <CIcon icon={cilCursor} customClassName="nav-icon" />,
-
       },
-
-
-    ]
-
+    ],
   },
-
 
   {
     component: CNavItem,
     name: 'Login',
     to: '/login',
   },
-
 
   {
     component: CNavGroup,
@@ -97,7 +87,6 @@ const _nav = [
             name: 'Employee Dashboard',
             to: '/base/collapses',
           },
-
           {
             component: CNavItem,
             name: 'Employee Performance ',
@@ -105,15 +94,25 @@ const _nav = [
           },
         ],
       },
-
-    ]
-
+    ],
   },
+];
 
+// ✅ Role-based filtering (without breaking alignment)
+if (role === "admin") {
+  // ✅ Admin can see everything except Login
+  _nav = _nav.filter(item => item.name !== "Login");
+}
 
+if (role === "manager") {
+  // ✅ Manager can see Admin group
+  // ✅ Hide Employee Module group
+  _nav = _nav.filter(item => item.name !== "Login");
+}
 
+if (role === "employee") {
+  // ✅ Employee sees ONLY Employee group
+  _nav = _nav.filter(item => item.name === "Employee" || item.name === "Login");
+}
 
-
-]
-
-export default _nav
+export default _nav;
