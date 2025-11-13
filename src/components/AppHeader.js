@@ -25,39 +25,45 @@ import { AppHeaderDropdown } from "./header/index";
 
 const AppHeader = () => {
   const headerRef = useRef();
+  const dispatch = useDispatch();
+  const sidebarShow = useSelector((state) => state.sidebarShow);
   const { colorMode, setColorMode } = useColorModes(
     "coreui-free-react-admin-template-theme"
   );
 
-  const dispatch = useDispatch();
-  const sidebarShow = useSelector((state) => state.sidebarShow);
+  
+  const [userRole, setUserRole] = useState("");
 
-  // ✅ Example role check — replace with your real logic
-  const [userRole, setUserRole] = useState(
-    localStorage.getItem("userRole") || "employee"
-  );
+  useEffect(() => {
+    const storedRole = localStorage.getItem("role");
+    setUserRole(storedRole || "guest");
+  }, []);
 
-  // ✅ Dummy notifications
+  
   const [notifications, setNotifications] = useState([
-    "Weekly report updated",
-    "Manager added a comment",
+    "Weekly report",
+    "Manager news",
     "Goal progress: 90%",
   ]);
 
+
   useEffect(() => {
-    document.addEventListener("scroll", () => {
-      headerRef.current &&
+    const handleScroll = () => {
+      if (headerRef.current) {
         headerRef.current.classList.toggle(
           "shadow-sm",
           document.documentElement.scrollTop > 0
         );
-    });
+      }
+    };
+    document.addEventListener("scroll", handleScroll);
+    return () => document.removeEventListener("scroll", handleScroll);
   }, []);
 
   return (
     <CHeader position="sticky" className="mb-4 p-0" ref={headerRef}>
       <CContainer className="border-bottom px-4" fluid>
-        {/* Sidebar toggle button */}
+        
         <CHeaderToggler
           onClick={() => dispatch({ type: "set", sidebarShow: !sidebarShow })}
           style={{ marginInlineStart: "-14px" }}
@@ -65,8 +71,8 @@ const AppHeader = () => {
           <CIcon icon={cilMenu} size="lg" />
         </CHeaderToggler>
 
-        <CHeaderNav className="ms-auto">
-          {/* 🔔 Notification Bell — only for employee */}
+        <CHeaderNav className="ms-auto align-items-center">
+          {/* 🔔 Notification Bell — only for Employee */}
           {userRole === "employee" && (
             <CDropdown variant="nav-item" placement="bottom-end">
               <CDropdownToggle caret={false}>
@@ -143,6 +149,7 @@ const AppHeader = () => {
             </CDropdownMenu>
           </CDropdown>
 
+          {/* Divider */}
           <li className="nav-item py-1">
             <div className="vr h-100 mx-2 text-body text-opacity-75"></div>
           </li>

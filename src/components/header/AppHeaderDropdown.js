@@ -1,4 +1,56 @@
- import React, { useEffect } from "react";
+
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { Dropdown } from "react-bootstrap";
+
+
+const AppHeaderDropdown = () => {
+  const navigate = useNavigate();
+  const role = localStorage.getItem("role") || "guest";
+  const username = localStorage.getItem("username") || "User";
+
+  const handleProfile = () => {
+    if (role === "admin") navigate("/pages/adminprofile");
+    else if (role === "employee") navigate("/pages/employeeprofile");
+  };
+
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate("/login");
+  };
+
+
+
+  const handleChangePassword = () =>{
+    navigate('/base/list-groups')
+  }
+
+  return (
+    <Dropdown align="end">
+      <Dropdown.Toggle variant="light" id="dropdown-basic">
+        {role === "admin" ? "Admin" : role === "employee" ? "Employee" : "User"}
+      </Dropdown.Toggle>
+
+      <Dropdown.Menu>
+        <Dropdown.Header>Welcome, {username}</Dropdown.Header>
+        <Dropdown.Divider />
+        <Dropdown.Item onClick={handleProfile}>Profile</Dropdown.Item>
+       
+        
+        <Dropdown.Item onClick={handleChangePassword}>Change Password</Dropdown.Item>
+        <Dropdown.Item onClick={handleLogout}>Logout</Dropdown.Item>
+      </Dropdown.Menu>
+    </Dropdown>
+  );
+};
+
+export default AppHeaderDropdown;
+
+
+
+
+/*
+import React, { useEffect } from "react";
 import {Link} from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
@@ -51,4 +103,4 @@ const AppHeaderDropdown = () => {
   );
 };
 
-export default AppHeaderDropdown; 
+export default AppHeaderDropdown; */

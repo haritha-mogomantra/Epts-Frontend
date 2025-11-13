@@ -25,6 +25,9 @@ const Tooltips = React.lazy(() => import('./views/base/tooltips/Tooltips'))
 //new
 const Performance = React.lazy(()=>import('./views/performance/performance'))
 
+const AdminProfile = React.lazy(() => import('./views/pages/adminprofile/AdminProfile'))
+const EmployeeProfile = React.lazy(() => import('./views/pages/employeeprofile/EmployeeProfile'))
+
 // Buttons
 const Buttons = React.lazy(() => import('./views/buttons/buttons/Buttons'))
 const ButtonGroups = React.lazy(() => import('./views/buttons/button-groups/ButtonGroups'))
@@ -70,7 +73,13 @@ const routes = [
   { path: '/base/list-groups', name: 'List Groups', element: ListGroups },
   { path: '/base/navs', name: 'Navs', element: Navs },
   { path: '/base/paginations', name: 'Paginations', element: Paginations },
+
+   // new 
+
+  {path : '/pages/adminprofile', name: 'AdminProfile' , element:AdminProfile},
+  {path: '/pages/employeeprofile', name:'EmployeeProfile', element:EmployeeProfile},
   
+ 
   
   
   
