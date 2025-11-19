@@ -15,6 +15,7 @@ function EmployeeTables() {
   const [loading, setLoading] = useState(false);
   const [alert, setAlert] = useState({ message: "", type: "" });
   const [isSearching, setIsSearching] = useState(false);
+  const [totalRecords, setTotalRecords] = useState(0);
 
   const [formData, setFormData] = useState({
     id: null,
@@ -34,6 +35,11 @@ function EmployeeTables() {
   const [mode, setMode] = useState("add");
   const [showModal, setShowModal] = useState(false);
   const searchTimeoutRef = useRef(null);
+  const [sortConfig, setSortConfig] = useState({
+    key: null,
+    direction: "asc",
+  });
+
 
   const managerLabel = (m) => {
     const name =
@@ -60,15 +66,19 @@ function EmployeeTables() {
     }
   };
 
-  const fetchEmployees = async (page = 1) => {
+  const fetchEmployees = async (page = 1, orderingParam = "") => {
     setLoading(true);
+
     try {
-      const res = await fetch(`${API_URL}?page=${page}`);
+      const url = `${API_URL}?page=${page}${orderingParam}`;
+      const res = await fetch(url);
       const data = await res.json();
 
       setEmployees(data.results || []);
       setTotalPages(data.total_pages || Math.ceil((data.count || 0) / 10));
       setCurrentPage(data.current_page || page);
+      setTotalRecords(data.count || 0);
+
     } catch (error) {
       console.error("Error fetching employees:", error);
       setAlert({ message: "Failed to load employees", type: "danger" });
@@ -76,6 +86,7 @@ function EmployeeTables() {
       setLoading(false);
     }
   };
+
 
   const fetchAllEmployees = async () => {
     try {
@@ -99,9 +110,19 @@ function EmployeeTables() {
   };
 
   useEffect(() => {
-    fetchEmployees(currentPage);
+    let ordering = "";
+    if (sortConfig.key) {
+      ordering = `&ordering=${
+        sortConfig.direction === "asc"
+          ? sortConfig.key
+          : "-" + sortConfig.key
+      }`;
+    }
+
+    fetchEmployees(currentPage, ordering);
     fetchManagers();
-  }, [currentPage]);
+  }, [currentPage, sortConfig]);
+
 
   useEffect(() => {
     if (alert.message) {
@@ -153,7 +174,8 @@ function EmployeeTables() {
   }, 500);
 };
 
-  const filteredEmployees = employees;
+  let filteredEmployees = [...employees];
+
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -184,8 +206,16 @@ function EmployeeTables() {
     setFormData({
       id: emp.id,
       emp_id: emp.emp_id,
-      first_name: emp.user?.first_name || "",
-      last_name: emp.user?.last_name || "",
+      first_name:
+        emp.first_name ||
+        emp.user?.first_name ||
+        emp.full_name?.split(" ")[0] ||
+        "",
+      last_name:
+        emp.last_name ||
+        emp.user?.last_name ||
+        emp.full_name?.split(" ")[1] ||
+        "",
       email: emp.email,
       department_code: emp.department_code || emp.department?.code || "",
       role: emp.role || "",
@@ -248,13 +278,7 @@ function EmployeeTables() {
     delete payload.emp_id;
     delete payload.id;
 
-    const requiredFields = [
-      "first_name",
-      "email",
-      "role",
-      "department_code",
-      "joining_date",
-    ];
+    const requiredFields = ["first_name", "last_name", "email", "role", "department_code", "joining_date"];
     const newErrors = {};
 
     requiredFields.forEach((field) => {
@@ -266,12 +290,17 @@ function EmployeeTables() {
     if (payload.email && !validateEmail(payload.email)) {
       newErrors.email = "Please enter a valid email address";
     }
+    // Last name alphabets only (no numbers or special characters)
+    if (payload.last_name && !/^[A-Za-z]+$/.test(payload.last_name)) {
+      newErrors.last_name = "Last name must contain only alphabets (A–Z).";
+    }
+
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       setLoading(false);
       setAlert({
-        message: "⚠️ Please fill all mandatory fields before saving.",
+        message: "Please fill all mandatory fields before saving.",
         type: "warning",
       });
       return;
@@ -286,20 +315,25 @@ function EmployeeTables() {
 
       const data = await res.json();
 
+
       if (!res.ok) {
-        const errorMsg =
-          data?.errors
-            ? Object.entries(data.errors)
-                .map(
-                  ([key, val]) =>
-                    `${key}: ${Array.isArray(val) ? val.join(", ") : val}`
-                )
-                .join(" | ")
-            : data?.error || "Failed to save employee.";
-        setAlert({ message: errorMsg, type: "danger" });
+        if (data?.errors && typeof data.errors === "object") {
+          const backendErrors = {};
+          Object.entries(data.errors).forEach(([key, val]) => {
+            backendErrors[key] = Array.isArray(val) ? val[0] : val;
+          });
+
+          setErrors(backendErrors);
+          setLoading(false);
+          return;
+        }
+
+        setAlert({ message: data?.error || "Failed to save employee.", type: "danger" });
+        setLoading(false);
         return;
       }
 
+      // SUCCESS — Add / Edit
       if (mode === "add") {
         const resAll = await fetch(API_URL);
         const dataAll = await resAll.json();
@@ -336,17 +370,16 @@ function EmployeeTables() {
         joining_date: "",
         manager: "",
       });
+
       setShowModal(false);
 
       setAlert({
-        message:
-          mode === "edit"
-            ? "Employee Updated Successfully!"
-            : "Employee Added Successfully!",
+        message: mode === "edit" ? "Employee Updated Successfully!" : "Employee Added Successfully!",
         type: "success",
       });
 
       window.scrollTo({ top: 0, behavior: "smooth" });
+
     } catch (error) {
       console.error("Error saving employee:", error);
       setAlert({ message: "Something went wrong while saving.", type: "danger" });
@@ -355,23 +388,58 @@ function EmployeeTables() {
     }
   };
 
+
   const handleCSVUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
     setLoading(true);
 
     const formDataCSV = new FormData();
     formDataCSV.append("file", file);
 
     try {
-      const res = await fetch(CSV_UPLOAD_URL, { method: "POST", body: formDataCSV });
-      if (!res.ok) throw new Error("CSV upload failed");
-      
+      const res = await fetch(CSV_UPLOAD_URL, {
+        method: "POST",
+        body: formDataCSV,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setAlert({ message: data.error || "CSV Upload Failed", type: "danger" });
+        return;
+      }
+
+      // If backend has error rows → show RED alert
+      if (data.errors && data.errors.length > 0) {
+        setAlert({
+          message: `CSV upload failed. ${data.errors.length} errors found.`,
+          type: "danger",
+        });
+        console.error("CSV Upload Errors:", data.errors);
+        return;
+      }
+
+      // If some rows uploaded
+      if (data.uploaded_count > 0) {
+        setAlert({
+          message: `CSV Uploaded Successfully! ${data.uploaded_count} employees added.`,
+          type: "success",
+        });
+      } else {
+        setAlert({
+          message: "No records were uploaded.",
+          type: "warning",
+        });
+      }
+
+      // Refresh employee list
       setIsSearching(false);
       setSearchTerm("");
-      fetchEmployees(1);
+      await fetchEmployees(1);
       setCurrentPage(1);
-      setAlert({ message: "CSV Uploaded Successfully!", type: "success" });
+
     } catch (error) {
       console.error("CSV upload error:", error);
       setAlert({ message: "Failed to upload CSV", type: "danger" });
@@ -380,6 +448,46 @@ function EmployeeTables() {
       e.target.value = "";
     }
   };
+
+
+  const handleSort = async (key) => {
+    let direction = "asc";
+
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+
+    setSortConfig({ key, direction });
+
+    const orderingParam = direction === "asc" ? key : `-${key}`;
+
+    setLoading(true);
+    setIsSearching(false);
+    setSearchTerm("");
+
+    try {
+      const res = await fetch(`${API_URL}?ordering=${orderingParam}&page=1`);
+      const data = await res.json();
+
+      setEmployees(
+        (data.results || []).map((emp) => ({
+          ...emp,
+          full_name:
+            emp.full_name ||
+            `${emp.user?.first_name || ""} ${emp.user?.last_name || ""}`.trim(),
+        }))
+      );
+      setTotalPages(data.total_pages || 1);
+      setCurrentPage(1);
+      setTotalRecords(data.count || 0);
+    } catch (error) {
+      console.error("Sorting error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
 
   return (
     <div className="container py-3">
@@ -412,15 +520,16 @@ function EmployeeTables() {
             <div>
               <label
                 htmlFor="csvUpload"
-                className="btn btn-outline-secondary me-2 mb-0"
+                className="btn btn-outline-secondary me-2 mb-0 csv-upload-btn"
+                data-bs-toggle="tooltip"
+                title="Upload Employee CSV"
               >
-                <i className="bi bi-upload" title="csv upload"></i>
+                <i className="bi bi-upload"></i>
               </label>
               <input
                 id="csvUpload"
                 type="file"
                 accept=".csv"
-                
                 onChange={handleCSVUpload}
                 style={{ display: "none" }}
               />
@@ -438,22 +547,43 @@ function EmployeeTables() {
             >
               <thead className="table-info">
                 <tr>
-                  <th>Emp ID</th>
-                  <th>Name</th>
+                  <th onClick={() => handleSort("user__emp_id")} style={{ cursor: "pointer" }}>
+                    Emp ID {sortConfig.key === "user__emp_id" ? (sortConfig.direction === "asc" ? "↑" : "↓") : ""}
+                  </th>
+
+                  <th onClick={() => handleSort("full_name")} style={{ cursor: "pointer" }}>
+                    Name {sortConfig.key === "full_name" ? (sortConfig.direction === "asc" ? "↑" : "↓") : ""}
+                  </th>
                   <th>Email</th>
                   <th>Designation</th>
                   <th>Project</th>
                   <th>Manager</th>
-                  <th>Joining Date</th>
+                  <th
+                    onClick={() => handleSort("joining_sort")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Joining Date {sortConfig.key === "joining_sort" ? (sortConfig.direction === "asc" ? "↑" : "↓") : ""}
+                  </th>
                   <th>Department</th>
+                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
 
               <tbody>
-                {filteredEmployees.length === 0 ? (
+                {loading ? (
+                  <>
+                    {[...Array(6)].map((_, i) => (
+                      <tr key={i}>
+                        <td colSpan="10" className="placeholder-glow py-3">
+                          <span className="placeholder col-12"></span>
+                        </td>
+                      </tr>
+                    ))}
+                  </>
+                ) : filteredEmployees.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="text-center py-5">
+                    <td colSpan="10" className="text-center py-5">
                       <i className="bi bi-inbox" style={{ fontSize: "3rem", color: "#ccc" }}></i>
                       <p className="mt-3 text-muted mb-0">
                         {searchTerm ? "No employees match your search" : "No employees found"}
@@ -464,37 +594,49 @@ function EmployeeTables() {
                   filteredEmployees.map((emp) => (
                     <tr key={emp.id}>
                       <td>{emp.emp_id}</td>
-                      <td>{emp.full_name}</td>
+                      <td>
+                        {emp.full_name ||
+                          `${emp.user?.first_name || ""} ${emp.user?.last_name || ""}`.trim()}
+                      </td>
                       <td>{emp.email}</td>
                       <td>{emp.designation}</td>
                       <td>{emp.project_name || "-"}</td>
                       <td>{emp.manager_name || "Not Assigned"}</td>
                       <td>{emp.joining_date}</td>
                       <td>{emp.department_name}</td>
-                      <td className="text-nowrap">
-                        <div className="d-flex justify-content-end align-items-center gap-2">
-                          <button
-                            className="btn btn-sm btn-outline-primary"
-                            title="Edit"
-                            onClick={() => handleEdit(emp)}
-                          >
-                            <i className="bi bi-pencil-square"></i>
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-success"
-                            title="View"
-                            onClick={() => handleView(emp)}
-                          >
-                            <i className="bi bi-eye"></i>
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-danger"
-                            title="Delete"
-                            onClick={() => handleDelete(emp.emp_id)}
-                          >
-                            <i className="bi bi-trash"></i>
-                          </button>
-                        </div>
+                      <td>
+                        <span
+                          className={
+                            emp.status === "Active" ? "badge bg-success" : "badge bg-danger"
+                          }
+                        >
+                          {emp.status}
+                        </span>
+                      </td>
+                      <td className="text-nowrap" style={{ minWidth: "120px" }}>
+                        <button
+                          className="btn btn-sm btn-info me-2"
+                          onClick={() => handleEdit(emp)}
+                          title="Edit"
+                        >
+                          <i className="bi bi-pencil-square text-white"></i>
+                        </button>
+
+                        <button
+                          className="btn btn-sm btn-warning me-2"
+                          onClick={() => handleView(emp)}
+                          title="View"
+                        >
+                          <i className="bi bi-eye text-white"></i>
+                        </button>
+
+                        <button
+                          className="btn btn-sm btn-danger"
+                          onClick={() => handleDelete(emp.id)}
+                          title="Delete"
+                        >
+                          <i className="bi bi-trash text-white"></i>
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -505,41 +647,57 @@ function EmployeeTables() {
 
           {/* Pagination */}
           {!isSearching && totalPages > 1 && (
-            <nav>
-              <ul className="pagination justify-content-end mt-2">
-                <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-                  <button
-                    className="page-link"
-                    onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
-                  >
-                    Previous
-                  </button>
-                </li>
+            <div className="d-flex justify-content-between align-items-center mt-3">
 
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <li
-                    key={page}
-                    className={`page-item ${page === currentPage ? "active" : ""}`}
-                  >
+              {/* Record Count */}
+              <div className="text-muted">
+                Showing {(currentPage - 1) * 10 + 1} –{" "}
+                {Math.min(currentPage * 10, totalRecords)} of {totalRecords} records
+              </div>
+
+              {/* Pagination Buttons */}
+              <nav>
+                <ul className="pagination mb-0">
+
+                  {/* Previous */}
+                  <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
                     <button
                       className="page-link"
-                      onClick={() => setCurrentPage(page)}
+                      onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
                     >
-                      {page}
+                      Previous
                     </button>
                   </li>
-                ))}
 
-                <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-                  <button
-                    className="page-link"
-                    onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}
-                  >
-                    Next
-                  </button>
-                </li>
-              </ul>
-            </nav>
+                  {/* Page Numbers */}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <li
+                      key={page}
+                      className={`page-item ${page === currentPage ? "active" : ""}`}
+                    >
+                      <button
+                        className="page-link"
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </button>
+                    </li>
+                  ))}
+
+                  {/* Next */}
+                  <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                    <button
+                      className="page-link"
+                      onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}
+                    >
+                      Next
+                    </button>
+                  </li>
+
+                </ul>
+              </nav>
+
+            </div>
           )}
         </div>
       </div>
@@ -585,14 +743,20 @@ function EmployeeTables() {
                     </div>
 
                     <div className="col-md-6">
-                      <label className="form-label">Last Name <span style={{color:"red"}}>*</span></label>
+                      <label className="form-label">
+                        Last Name <span style={{ color: "red" }}>*</span>
+                      </label>
                       <input
                         className={`form-control ${errors.last_name ? "is-invalid" : ""}`}
                         name="last_name"
                         value={formData.last_name}
                         onChange={handleInputChange}
                         readOnly={mode === "view"}
+                        placeholder={errors.last_name || ""}
                       />
+                      {errors.last_name && (
+                        <div className="invalid-feedback">{errors.last_name}</div>
+                      )}
                     </div>
 
                     {/* Email */}
@@ -606,7 +770,7 @@ function EmployeeTables() {
                         name="email"
                         value={formData.email}
                         onChange={handleInputChange}
-                        readOnly={mode === "edit" || mode === "view"}
+                        readOnly={mode === "view"}
                         placeholder={errors.email || ""}
                       />
                       {errors.email && (

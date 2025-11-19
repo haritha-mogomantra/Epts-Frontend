@@ -65,3 +65,16 @@ body {
     --cui-footer-bg: var(--cui-body-bg);
   }
 }
+
+
+/* CSV Upload Button Hover */
+.csv-upload-btn {
+  transition: 0.2s ease-in-out;
+}
+
+.csv-upload-btn:hover {
+  background-color: #0d6efd !important;
+  color: #fff !important;
+  transform: translateY(-2px);
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.15);
+}

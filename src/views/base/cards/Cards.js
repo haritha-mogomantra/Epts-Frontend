@@ -1,12 +1,3 @@
-
-
-
-
-
-
-
-
-
 import React, { useState, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 
@@ -26,6 +17,32 @@ const LoginDetails = () => {
     currentPage: 1,
     totalCount: 0,
   });
+  const [allEmployees, setAllEmployees] = useState([]);
+  const [menuLoading, setMenuLoading] = useState(false);
+
+  const fetchAllEmployees = async () => {
+    try {
+      let all = [];
+      let page = 1;
+
+      while (true) {
+        const res = await fetch(`${API_URL}?page=${page}`);
+        const data = await res.json();
+
+        if (!data.results || data.results.length === 0) break;
+
+        all.push(...data.results);
+
+        if (!data.next) break;
+        page++;
+      }
+
+      return all;
+    } catch (error) {
+      console.error("Error fetching all employees:", error);
+      return [];
+    }
+  };
 
   // ==================================================
   // FETCH EMPLOYEES — Use backend temp_password only
@@ -51,7 +68,7 @@ const LoginDetails = () => {
         currentPage: getPageNumberFromUrl(url) || 1,
       });
 
-      // ✅ Save current page URL to localStorage
+      // Save current page URL to localStorage
       localStorage.setItem("loginDetailsPageUrl", url);
     } catch (error) {
       console.error("Error fetching employees:", error);
@@ -71,20 +88,35 @@ const LoginDetails = () => {
   };
 
   useEffect(() => {
-    // ✅ On mount, check if last viewed page exists in localStorage
-    const savedUrl = localStorage.getItem("loginDetailsPageUrl");
-    if (savedUrl) {
-      fetchEmployees(savedUrl);
-    } else {
-      fetchEmployees(API_URL);
+    const loadData = async () => {
+      try {
+        setMenuLoading(true);
+
+      const savedUrl = localStorage.getItem("loginDetailsPageUrl");
+
+      if (savedUrl) {
+        await fetchEmployees(savedUrl);
+      } else {
+        await fetchEmployees(API_URL);
+      }
+
+      const all = await fetchAllEmployees();
+      setAllEmployees(all);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setMenuLoading(false);
     }
+    };
+
+    loadData();
   }, []);
 
   // ==================================================
   // PASSWORD REGENERATION (Backend Only)
   // ==================================================
   const regeneratePassword = async (empId) => {
-    setRegenLoading(empId); // ✅ show loader for specific row
+    setRegenLoading(empId); // show loader for specific row
     try {
       const response = await fetch(`${REGENERATE_URL}${empId}/`, {
         method: "POST",
@@ -143,12 +175,16 @@ const LoginDetails = () => {
     setSortConfig({ key, direction });
   };
 
-  const filteredData = employees.filter(
-    (emp) =>
-      emp.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-      emp.emp_id?.toLowerCase().includes(search.toLowerCase()) ||
-      emp.username?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredData =
+    search.trim() === ""
+      ? employees
+      : allEmployees.filter(
+          (emp) =>
+            emp.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+            emp.emp_id?.toLowerCase().includes(search.toLowerCase()) ||
+            emp.username?.toLowerCase().includes(search.toLowerCase())
+        );
+
 
   const sortedData = [...filteredData].sort((a, b) => {
     if (!sortConfig.key) return 0;
@@ -175,6 +211,28 @@ const LoginDetails = () => {
   // ==================================================
   return (
     <div className="container">
+      {menuLoading && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(255,255,255,0.85)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 99999,
+            pointerEvents: "auto" // prevents clicks
+          }}
+        >
+          <div className="text-center">
+            <div className="spinner-border text-primary" style={{ width: "4rem", height: "4rem" }} role="status"></div>
+            <div className="mt-2 fw-semibold text-primary">Loading…</div>
+          </div>
+        </div>
+      )}
       <div className="text-dark mb-3">
         <h5>LOGIN CREDENTIALS</h5>
       </div>
@@ -203,7 +261,18 @@ const LoginDetails = () => {
               className="form-control w-25"
               placeholder="Search Employee..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSearch(value);
+
+                setLoading(true);
+                setTimeout(() => setLoading(false), 400);
+
+                // Load all employees only once for global search
+                if (value.trim() !== "" && allEmployees.length === 0) {
+                  fetchAllEmployees().then((all) => setAllEmployees(all));
+                }
+              }}
             />
           </div>
 
@@ -231,16 +300,19 @@ const LoginDetails = () => {
               </thead>
 
               <tbody>
+
                 {loading ? (
-                  <tr>
-                    <td colSpan="5">
-                      <div
-                        className="spinner-border text-primary"
-                        role="status"
-                      ></div>
-                    </td>
-                  </tr>
+                  <>
+                    {[...Array(6)].map((_, i) => (
+                      <tr key={i}>
+                        <td colSpan="5" className="placeholder-glow py-3">
+                          <span className="placeholder col-12"></span>
+                        </td>
+                      </tr>
+                    ))}
+                  </>
                 ) : sortedData.length > 0 ? (
+
                   sortedData.map((emp) => (
                     <tr key={emp.emp_id}>
                       <td>{emp.emp_id}</td>
@@ -272,278 +344,59 @@ const LoginDetails = () => {
                       </td>
                     </tr>
                   ))
+
                 ) : (
                   <tr>
-                    <td colSpan="5" className="text-muted">
+                    <td colSpan="5" className="text-muted py-4">
                       No employees found
                     </td>
                   </tr>
                 )}
+
               </tbody>
             </table>
           </div>
 
-          {/* Pagination */}
-          <nav>
-            <ul className="pagination justify-content-end mt-3 mb-0">
-              <li
-                className={`page-item ${
-                  !pagination.previous ? "disabled" : ""
-                }`}
-              >
-                <button className="page-link" onClick={handlePreviousPage}>
-                  Previous
-                </button>
-              </li>
+          {/* RECORD COUNT + PAGINATION */}
+          <div className="d-flex justify-content-between align-items-center mt-3">
 
-              {(() => {
-                const pageSize = 20;
-                const totalPages = Math.ceil(pagination.totalCount / pageSize);
-                const current = pagination.currentPage;
-                const start = Math.max(1, current - 2);
-                const end = Math.min(totalPages, start + 4);
-                const pages = [];
-                for (let i = start; i <= end; i++) pages.push(i);
-                return pages.map((num) => (
-                  <li
-                    key={num}
-                    className={`page-item ${num === current ? "active" : ""}`}
-                  >
-                    <button
-                      className="page-link"
-                      onClick={() => handlePageClick(num)}
-                    >
-                      {num}
-                    </button>
-                  </li>
-                ));
-              })()}
-
-              <li
-                className={`page-item ${!pagination.next ? "disabled" : ""}`}
-              >
-                <button className="page-link" onClick={handleNextPage}>
-                  Next
-                </button>
-              </li>
-            </ul>
-          </nav>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default LoginDetails;
-
-
-
-
-
-
-
-
-
-/*
-   import React, { useState } from "react";
-import "bootstrap/dist/css/bootstrap.min.css";
-
-const LoginDetails = () => {
-  const [employees, setEmployees] = useState([
-    { id: "EMP001", name: "eswar", username: "eswar", password: "pass@123" },
-    { id: "EMP002", name: "haritha", username: "haritha", password: "pass@456" },
-    { id: "EMP003", name: "gopi", username: "gopi", password: "pass@789" },
-    { id: "EMP004", name: "srinivas", username: "srinu", password: "pass@321" },
-    { id: "EMP005", name: "sandeep", username: "sandy", password: "pass@654" },
-    { id: "EMP006", name: "sravani", username: "sravs", password: "pass@147" },
-  ]);
-
-  const [search, setSearch] = useState("");
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
-  const [currentPage, setCurrentPage] = useState(1);
-  const [alert, setAlert] = useState({ show: false, message: "", type: "" });
-
-  const recordsPerPage = 4;
-
-  const filteredData = employees.filter(
-    (emp) =>
-      emp.name.toLowerCase().includes(search.toLowerCase()) ||
-      emp.id.toLowerCase().includes(search.toLowerCase()) ||
-      emp.username.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const sortedData = [...filteredData].sort((a, b) => {
-    if (!sortConfig.key) return 0;
-    if (a[sortConfig.key] < b[sortConfig.key])
-      return sortConfig.direction === "asc" ? -1 : 1;
-    if (a[sortConfig.key] > b[sortConfig.key])
-      return sortConfig.direction === "asc" ? 1 : -1;
-    return 0;
-  });
-
-  const lastIndex = currentPage * recordsPerPage;
-  const firstIndex = lastIndex - recordsPerPage;
-  const currentData = sortedData.slice(firstIndex, lastIndex);
-  const totalPages = Math.ceil(sortedData.length / recordsPerPage);
-
-  const handleSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const regeneratePassword = (empId) => {
-    const newPass = Math.random().toString(36).slice(-8);
-    setEmployees((prev) =>
-      prev.map((emp) =>
-        emp.id === empId ? { ...emp, password: newPass } : emp
-      )
-    );
-
-    // ✅ Show success alert instead of normal alert()
-    setAlert({
-      show: true,
-      type: "success",
-      message: `Password regenerated successfully for ${empId}.`,
-    });
-
-    // Auto hide alert after 3 seconds
-    setTimeout(() => setAlert({ show: false, message: "", type: "" }), 3000);
-  };
-
-  const getSortIcon = (key) => {
-    if (sortConfig.key === key) {
-      return sortConfig.direction === "asc" ? "▲" : "▼";
-    }
-    return "";
-  };
-
-  return (
-    <div className="container">
-      <div className="text-dark mb-3">
-        <h5>LOGIN CREDENTIALS</h5>
-      </div>
-
-      <div className="card shadow border-0">
-        <div className="card-body">
-          
-          {alert.show && (
-            <div
-              className={`alert alert-${alert.type} alert-dismissible fade show`}
-              role="alert"
-            >
-              {alert.message}
-              <button
-                type="button"
-                className="btn-close"
-                onClick={() => setAlert({ show: false, message: "", type: "" })}
-              ></button>
+            {/* LEFT — Record Count */}
+            <div className="text-muted">
+              Showing {(pagination.currentPage - 1) * 10 + 1} –{" "}
+              {Math.min(pagination.currentPage * 10, pagination.totalCount)} of{" "}
+              {pagination.totalCount} records
             </div>
-          )}
 
-          <div className="mb-3">
-            <input
-              type="text"
-              className="form-control w-25"
-              placeholder="Search Employee..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-
-          <div className="table-responsive">
-            <table className="table table-bordered table-hover align-middle text-center">
-              <thead className="table-light">
-                <tr>
-                  <th onClick={() => handleSort("id")} style={{ cursor: "pointer" }}>
-                    Emp ID {getSortIcon("id")}
-                  </th>
-                  <th onClick={() => handleSort("name")} style={{ cursor: "pointer" }}>
-                    Name {getSortIcon("name")}
-                  </th>
-                  <th onClick={() => handleSort("username")} style={{ cursor: "pointer" }}>
-                    Username {getSortIcon("username")}
-                  </th>
-                  <th onClick={() => handleSort("password")} style={{ cursor: "pointer" }}>
-                    Password {getSortIcon("password")}
-                  </th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {currentData.length > 0 ? (
-                  currentData.map((emp) => (
-                    <tr key={emp.id}>
-                      <td>{emp.id}</td>
-                      <td>{emp.name}</td>
-                      <td>{emp.username}</td>
-                      <td>{emp.password}</td>
-                      <td>
-                        <button
-                          className="btn btn-warning btn-sm text-white"
-                          onClick={() => regeneratePassword(emp.id)}
-                        >
-                          Regenerate Password
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="5" className="text-muted">
-                      No employees found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-    
-          <nav>
-            <ul className="pagination justify-content-end mt-3 mb-0">
-              <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-                <button
-                  className="page-link"
-                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                >
-                  Previous
-                </button>
-              </li>
-
-              {[...Array(totalPages)].map((_, i) => (
-                <li
-                  key={i}
-                  className={`page-item ${currentPage === i + 1 ? "active" : ""}`}
-                >
-                  <button
-                    className="page-link"
-                    onClick={() => setCurrentPage(i + 1)}
-                  >
-                    {i + 1}
-                  </button>
+            {/* RIGHT — Pagination */}
+            <nav>
+              <ul className="pagination mb-0">
+                <li className={`page-item ${!pagination.previous ? "disabled" : ""}`}>
+                  <button className="page-link" onClick={handlePreviousPage}>Previous</button>
                 </li>
-              ))}
 
-              <li
-                className={`page-item ${
-                  currentPage === totalPages ? "disabled" : ""
-                }`}
-              >
-                <button
-                  className="page-link"
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(p + 1, totalPages))
-                  }
-                >
-                  Next
-                </button>
-              </li>
-            </ul>
-          </nav>
+                {(() => {
+                  const pageSize = 10;
+                  const totalPages = Math.ceil(pagination.totalCount / pageSize);
+                  const current = pagination.currentPage;
+                  const start = Math.max(1, current - 2);
+                  const end = Math.min(totalPages, start + 4);
+                  const pages = [];
+                  for (let i = start; i <= end; i++) pages.push(i);
+                  return pages.map((num) => (
+                    <li key={num} className={`page-item ${num === current ? "active" : ""}`}>
+                      <button className="page-link" onClick={() => handlePageClick(num)}>
+                        {num}
+                      </button>
+                    </li>
+                  ));
+                })()}
+
+                <li className={`page-item ${!pagination.next ? "disabled" : ""}`}>
+                  <button className="page-link" onClick={handleNextPage}>Next</button>
+                </li>
+              </ul>
+            </nav>
+          </div>
         </div>
       </div>
     </div>
@@ -551,5 +404,3 @@ const LoginDetails = () => {
 };
 
 export default LoginDetails;
-
-*/

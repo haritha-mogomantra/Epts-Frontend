@@ -12,6 +12,7 @@ import {
   useColorModes,
   CBadge,
 } from "@coreui/react";
+
 import CIcon from "@coreui/icons-react";
 import {
   cilBell,
@@ -20,8 +21,12 @@ import {
   cilMoon,
   cilSun,
 } from "@coreui/icons";
+
+import axios from "axios";
 import { AppBreadcrumb } from "./index";
 import { AppHeaderDropdown } from "./header/index";
+
+const API_BASE = "http://localhost:8000/api/notifications/";
 
 const AppHeader = () => {
   const headerRef = useRef();
@@ -31,22 +36,85 @@ const AppHeader = () => {
     "coreui-free-react-admin-template-theme"
   );
 
-  
   const [userRole, setUserRole] = useState("");
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
+  // ==========================================================
+  // 🔹 FUNCTIONS MUST COME BEFORE useEffect()
+  // ==========================================================
+
+  // Load unread notifications from Django
+  const loadNotifications = () => {
+    const token = localStorage.getItem("access_token");
+
+    axios
+      .get(`${API_BASE}?status=unread`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        setNotifications(res.data.notifications || []);
+        setUnreadCount(res.data.unread_count || 0);
+      })
+      .catch(() => {
+        setNotifications([]);
+        setUnreadCount(0);
+      });
+  };
+
+  // Mark a single notification as read
+  const markAsRead = async (id) => {
+    const token = localStorage.getItem("access_token");
+
+    await axios.patch(
+      `${API_BASE}${id}/mark-read/`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    loadNotifications(); // refresh
+  };
+
+  // ==========================================================
+  // 1️⃣ Fetch USER ROLE
+  // ==========================================================
+  // Load role directly from login info
   useEffect(() => {
-    const storedRole = localStorage.getItem("role");
-    setUserRole(storedRole || "guest");
+    const savedRole = localStorage.getItem("role");
+
+    if (savedRole) {
+      setUserRole(savedRole.toLowerCase());
+    } else {
+      setUserRole("guest");
+    }
   }, []);
 
-  
-  const [notifications, setNotifications] = useState([
-    "Weekly report",
-    "Manager news",
-    "Goal progress: 90%",
-  ]);
 
+  // ==========================================================
+  // 2️⃣ Load notifications when role becomes 'employee'
+  // ==========================================================
+  useEffect(() => {
+    if (userRole === "employee") {
+      loadNotifications();
+    }
+  }, [userRole]);
 
+  // ==========================================================
+  // 3️⃣ Auto-refresh notifications every 30s
+  // ==========================================================
+  useEffect(() => {
+    if (userRole !== "employee") return;
+
+    const interval = setInterval(() => {
+      loadNotifications();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [userRole]);
+
+  // ==========================================================
+  // 4️⃣ Header shadow effect on scroll
+  // ==========================================================
   useEffect(() => {
     const handleScroll = () => {
       if (headerRef.current) {
@@ -56,14 +124,17 @@ const AppHeader = () => {
         );
       }
     };
+
     document.addEventListener("scroll", handleScroll);
     return () => document.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // ==========================================================
+  // RENDER UI
+  // ==========================================================
   return (
     <CHeader position="sticky" className="mb-4 p-0" ref={headerRef}>
       <CContainer className="border-bottom px-4" fluid>
-        
         <CHeaderToggler
           onClick={() => dispatch({ type: "set", sidebarShow: !sidebarShow })}
           style={{ marginInlineStart: "-14px" }}
@@ -72,13 +143,14 @@ const AppHeader = () => {
         </CHeaderToggler>
 
         <CHeaderNav className="ms-auto align-items-center">
-          {/* 🔔 Notification Bell — only for Employee */}
+
+          {/* Notification Bell */}
           {userRole === "employee" && (
             <CDropdown variant="nav-item" placement="bottom-end">
               <CDropdownToggle caret={false}>
                 <div style={{ position: "relative" }}>
                   <CIcon icon={cilBell} size="lg" />
-                  {notifications.length > 0 && (
+                  {unreadCount > 0 && (
                     <CBadge
                       color="danger"
                       position="top-end"
@@ -90,16 +162,20 @@ const AppHeader = () => {
                         fontSize: "0.6rem",
                       }}
                     >
-                      {notifications.length}
+                      {unreadCount}
                     </CBadge>
                   )}
                 </div>
               </CDropdownToggle>
+
               <CDropdownMenu className="pt-0">
                 <CDropdownItem header>Notifications</CDropdownItem>
+
                 {notifications.length > 0 ? (
-                  notifications.map((note, index) => (
-                    <CDropdownItem key={index}>{note}</CDropdownItem>
+                  notifications.map((note) => (
+                    <CDropdownItem key={note.id} onClick={() => markAsRead(note.id)}>
+                      {note.meta_display}
+                    </CDropdownItem>
                   ))
                 ) : (
                   <CDropdownItem disabled>No new notifications</CDropdownItem>
@@ -113,7 +189,7 @@ const AppHeader = () => {
             <div className="vr h-100 mx-2 text-body text-opacity-75"></div>
           </li>
 
-          {/* 🌙 Theme toggle dropdown */}
+          {/* Theme Switch */}
           <CDropdown variant="nav-item" placement="bottom-end">
             <CDropdownToggle caret={false}>
               {colorMode === "dark" ? (
@@ -124,6 +200,7 @@ const AppHeader = () => {
                 <CIcon icon={cilSun} size="lg" />
               )}
             </CDropdownToggle>
+
             <CDropdownMenu>
               <CDropdownItem
                 active={colorMode === "light"}
@@ -132,6 +209,7 @@ const AppHeader = () => {
               >
                 <CIcon className="me-2" icon={cilSun} size="lg" /> Light
               </CDropdownItem>
+
               <CDropdownItem
                 active={colorMode === "dark"}
                 as="button"
@@ -139,6 +217,7 @@ const AppHeader = () => {
               >
                 <CIcon className="me-2" icon={cilMoon} size="lg" /> Dark
               </CDropdownItem>
+
               <CDropdownItem
                 active={colorMode === "auto"}
                 as="button"
@@ -154,8 +233,8 @@ const AppHeader = () => {
             <div className="vr h-100 mx-2 text-body text-opacity-75"></div>
           </li>
 
-          {/* 👤 Profile dropdown */}
-          <AppHeaderDropdown />
+          {/* Profile Dropdown */}
+          <AppHeaderDropdown userRole={userRole} />
         </CHeaderNav>
       </CContainer>
 

@@ -1,6 +1,6 @@
 import React from 'react'
 import { useSelector, useDispatch } from 'react-redux'
-
+ 
 import {
   CCloseButton,
   CSidebar,
@@ -8,39 +8,41 @@ import {
   CSidebarHeader
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-
+ 
 import { AppSidebarNav } from './AppSidebarNav'
 import navigation from '../_nav'
-
+ 
 import { sygnet } from 'src/assets/brand/sygnet'
-
+ 
 const AppSidebar = () => {
   const dispatch = useDispatch()
   const unfoldable = useSelector((state) => state.sidebarUnfoldable)
   const sidebarShow = useSelector((state) => state.sidebarShow)
-
-  
-  const role = localStorage.getItem("role")
-
-  
+ 
+ 
+  const role = (localStorage.getItem("role") || "").toLowerCase();
+ 
+ 
  const filterNavigation = (items) => {
   return items
     .map((item) => {
-
       
+      if (role !== "guest" && item.name === "Login") {
+        return null;
+      }
       if (role === "admin") {
         if (item.name === "Employee") {
-          
+         
           const employeeModule = item.items?.some(
             (x) => x.name === "Employee Module"
           );
-          if (employeeModule) return null; 
-          return item; 
+          if (employeeModule) return null;
+          return item;
         }
         return item;
       }
-
-      
+ 
+     
       if (role === "manager") {
         if (item.name === "Admin") {
           const allowedAdminItems = item.items.map((inner) => {
@@ -54,8 +56,8 @@ const AppSidebar = () => {
           });
           return { ...item, items: allowedAdminItems };
         }
-
-        
+ 
+       
         if (item.name === "Employee") {
           const employeeModule = item.items?.some(
             (x) => x.name === "Employee Module"
@@ -63,25 +65,25 @@ const AppSidebar = () => {
           if (employeeModule) return null;
           return item;
         }
-
+ 
         return item;
       }
-
-      
+ 
+     
       if (role === "employee") {
-        if (item.name === "Employee") return item; 
-        return null; 
+        if (item.name === "Employee") return item;
+        return null;
       }
-
+ 
       return item;
     })
     .filter(Boolean);
 };
-
-
-  
+ 
+ 
+ 
   const filteredNav = filterNavigation(navigation)
-
+ 
   return (
     <CSidebar
       className="border-end"
@@ -104,11 +106,11 @@ const AppSidebar = () => {
           onClick={() => dispatch({ type: 'set', sidebarShow: false })}
         />
       </CSidebarHeader>
-
-  
+ 
+ 
       <AppSidebarNav items={filteredNav} />
     </CSidebar>
   )
 }
-
+ 
 export default React.memo(AppSidebar)

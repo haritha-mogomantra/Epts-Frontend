@@ -1,55 +1,3 @@
-
-import React from "react";
-import { useNavigate } from "react-router-dom";
-import { Dropdown } from "react-bootstrap";
-
-
-const AppHeaderDropdown = () => {
-  const navigate = useNavigate();
-  const role = localStorage.getItem("role") || "guest";
-  const username = localStorage.getItem("username") || "User";
-
-  const handleProfile = () => {
-    if (role === "admin") navigate("/pages/adminprofile");
-    else if (role === "employee") navigate("/pages/employeeprofile");
-  };
-
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate("/login");
-  };
-
-
-
-  const handleChangePassword = () =>{
-    navigate('/base/list-groups')
-  }
-
-  return (
-    <Dropdown align="end">
-      <Dropdown.Toggle variant="light" id="dropdown-basic">
-        {role === "admin" ? "Admin" : role === "employee" ? "Employee" : "User"}
-      </Dropdown.Toggle>
-
-      <Dropdown.Menu>
-        <Dropdown.Header>Welcome, {username}</Dropdown.Header>
-        <Dropdown.Divider />
-        <Dropdown.Item onClick={handleProfile}>Profile</Dropdown.Item>
-       
-        
-        <Dropdown.Item onClick={handleChangePassword}>Change Password</Dropdown.Item>
-        <Dropdown.Item onClick={handleLogout}>Logout</Dropdown.Item>
-      </Dropdown.Menu>
-    </Dropdown>
-  );
-};
-
-export default AppHeaderDropdown;
-
-
-
-
-/*
 import React, { useEffect } from "react";
 import {Link} from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -81,13 +29,13 @@ const AppHeaderDropdown = () => {
         aria-labelledby="dropdownMenuButton"
       >
         <li>
-          <Link className="dropdown-item" to="/base/paginations">
+          <Link className="dropdown-item" to="/pages/profile">
             <i className="bi bi-person me-2"></i>
             Profile
           </Link>
         </li>
         <li>
-          <Link className="dropdown-item" to="/base/list-groups">
+          <Link className="dropdown-item" to="/pages/change-password">
            <i className="bi bi-key me-2"></i> Change Password
           </Link>
         </li>
@@ -103,4 +51,4 @@ const AppHeaderDropdown = () => {
   );
 };
 
-export default AppHeaderDropdown; */
+export default AppHeaderDropdown;

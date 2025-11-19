@@ -24,9 +24,16 @@ const Tooltips = React.lazy(() => import('./views/base/tooltips/Tooltips'))
 
 //new
 const Performance = React.lazy(()=>import('./views/performance/performance'))
-
 const AdminProfile = React.lazy(() => import('./views/pages/adminprofile/AdminProfile'))
 const EmployeeProfile = React.lazy(() => import('./views/pages/employeeprofile/EmployeeProfile'))
+const ChangePassword = React.lazy(
+  () => import("./views/base/list-groups/ListGroups")
+);
+
+const Profile = React.lazy(
+  () => import("./components/profile/Profile")
+);
+
 
 // Buttons
 const Buttons = React.lazy(() => import('./views/buttons/buttons/Buttons'))
@@ -73,14 +80,14 @@ const routes = [
   { path: '/base/list-groups', name: 'List Groups', element: ListGroups },
   { path: '/base/navs', name: 'Navs', element: Navs },
   { path: '/base/paginations', name: 'Paginations', element: Paginations },
-
-   // new 
-
+  
   {path : '/pages/adminprofile', name: 'AdminProfile' , element:AdminProfile},
   {path: '/pages/employeeprofile', name:'EmployeeProfile', element:EmployeeProfile},
-  
+
+  { path: '/pages/profile', name: 'Profile', element: Profile },
+  { path: '/pages/change-password', name: 'ChangePassword', element: ChangePassword },
+
  
-  
   
   
   { path: '/base/tabs', name: 'Tabs', element: Tabs },
