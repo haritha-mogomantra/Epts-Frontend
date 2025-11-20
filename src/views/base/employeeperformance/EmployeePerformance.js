@@ -6,34 +6,35 @@ import { useNavigate, useLocation } from "react-router-dom";
 import axiosInstance from "../../../utils/axiosInstance";
 
 
-function getAllowedWeeks() {
-  const today = new Date();
+const weekInputStyle = {
+  fontFamily: "Segoe UI, Arial, sans-serif",
+  fontSize: "14px",
+  fontWeight: "400",
+  color: "#212529",
+};
 
-  // Get current ISO week and year
-  const currentYear = today.getFullYear();
-  const currentWeek = Number(
-    today.toLocaleDateString("en-GB", { week: "numeric", year: "numeric" })
-  );
+const getISOWeek = (date) => {
+  const temp = new Date(date.valueOf());
+  const dayNumber = (date.getDay() + 6) % 7;
+  temp.setDate(temp.getDate() - dayNumber + 3);
 
-  // Previous week handling
-  let prevWeek = currentWeek - 1;
-  let prevYear = currentYear;
+  const firstThursday = temp.valueOf();
+  temp.setMonth(0, 1);
 
-  // If current week is 1 → previous week is last week of last year
-  if (prevWeek === 0) {
-    prevWeek = 52;
-    prevYear = currentYear - 1;
-  }
+  const week =
+    Math.ceil((((firstThursday - temp) / 86400000) + temp.getDay() + 1) / 7);
 
-  return {
-    min: `${prevYear}-W${String(prevWeek).padStart(2, "0")}`,
-    max: `${currentYear}-W${String(currentWeek).padStart(2, "0")}`,
-  };
-}
+  return `${date.getFullYear()}-W${String(week).padStart(2, "0")}`;
+};
+
+const today = new Date();
+const maxWeek = getISOWeek(today);
+
+const minWeek = "2000-W01";
+
 
  
 function EmployeePerformance() {
-  const allowed = getAllowedWeeks();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -70,6 +71,8 @@ function EmployeePerformance() {
   const [totalRecords, setTotalRecords] = useState(0);
   const [visibleCount, setVisibleCount] = useState(0);
   const [selectedWeek, setSelectedWeek] = useState("");
+  const [maxSelectableWeek, setMaxSelectableWeek] = useState("");
+
 
 
   // Auto-select latest week on initial load
@@ -81,8 +84,10 @@ function EmployeePerformance() {
         if (res.data.week && res.data.year) {
           const formatted = `${res.data.year}-W${String(res.data.week).padStart(2, "0")}`;
           setSelectedWeek(formatted);
-          setWeek(formatted);   // 🔥 also update your existing state week
+          setWeek(formatted);
+          setMaxSelectableWeek(formatted); // ✅ prevents future selection
         }
+
       } catch (error) {
         console.error("Error fetching latest week:", error);
       }
@@ -236,9 +241,30 @@ function EmployeePerformance() {
     );
   };
 
+
  
   return (
     <div className="container">
+      <style>
+      {`
+      input[type="week"] {
+        color: #212529 !important;
+      }
+
+      input[type="week"]::-webkit-datetime-edit {
+        color: #212529 !important;
+      }
+
+      input[type="week"]::-webkit-datetime-edit-text {
+        color: #212529 !important;
+      }
+
+      input[type="week"]::-webkit-datetime-edit-year-field,
+      input[type="week"]::-webkit-datetime-edit-week-field {
+        color: #212529 !important;
+      }
+      `}
+      </style>
       {pageLoading && (
         <div
           style={{
@@ -287,14 +313,15 @@ function EmployeePerformance() {
               <input
                 type="week"
                 className="form-control w-auto me-3"
+                style={weekInputStyle}
                 value={selectedWeek}
                 onChange={(e) => {
                   setSelectedWeek(e.target.value);
-                  setWeek(e.target.value);   // update existing week logic
+                  setWeek(e.target.value);
                 }}
-                title="Select Week"
-                min={allowed.min}
-                max={allowed.max}
+                min="2000-W01"            
+                max={maxSelectableWeek} 
+                title="Past weeks only. Future weeks are disabled."
               />
             </div>
             <button

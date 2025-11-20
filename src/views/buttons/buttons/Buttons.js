@@ -674,4 +674,3 @@ function DynamicPerformanceReport() {
 }
 
 export default DynamicPerformanceReport;
-

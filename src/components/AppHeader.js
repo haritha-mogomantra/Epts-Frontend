@@ -148,7 +148,7 @@ const AppHeader = () => {
           {userRole === "employee" && (
             <CDropdown variant="nav-item" placement="bottom-end">
               <CDropdownToggle caret={false}>
-                <div style={{ position: "relative" }}>
+                <div style={{ position: "relative" }} title="Notifications">
                   <CIcon icon={cilBell} size="lg" />
                   {unreadCount > 0 && (
                     <CBadge

@@ -3,6 +3,29 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { useNavigate, useLocation } from "react-router-dom";
 import axiosInstance from "../../../utils/axiosInstance";
 
+const weekInputStyle = {
+  fontFamily: "Segoe UI, Arial, sans-serif",
+  fontSize: "14px",
+  fontWeight: "400",
+  color: "#212529",
+};
+
+
+const getISOWeek = (date) => {
+  const temp = new Date(date.valueOf());
+  const dayNumber = (date.getDay() + 6) % 7;
+  temp.setDate(temp.getDate() - dayNumber + 3);
+
+  const firstThursday = temp.valueOf();
+  temp.setMonth(0, 1);
+
+  const week =
+    Math.ceil((((firstThursday - temp) / 86400000) + temp.getDay() + 1) / 7);
+
+  return `${date.getFullYear()}-W${String(week).padStart(2, "0")}`;
+};
+
+
 const PerformanceMetrics = () => {
   const [selectedWeek, setSelectedWeek] = useState("");
   const [employeeId, setEmployeeId] = useState("");
@@ -48,6 +71,36 @@ const PerformanceMetrics = () => {
   const { employee, mode, selectedWeek: navigatedWeek } = location.state || {};
   const [isReadOnly, setIsReadOnly] = useState(mode === "view");
 
+  //AUTO SELECT LATEST WEEK ON PAGE LOAD (ADD MODE)
+  useEffect(() => {
+    const fetchLatestWeek = async () => {
+      try {
+        const res = await axiosInstance.get("/performance/latest-week/");
+        const { year, week } = res.data;
+
+        const formattedWeek = `${year}-W${String(week).padStart(2, "0")}`;
+        setSelectedWeek(formattedWeek);
+      } catch (error) {
+        console.error("Error fetching latest week:", error);
+      }
+    };
+
+    if (!evaluationId) {
+      fetchLatestWeek();
+    }
+  }, []);
+
+  const today = new Date();
+  const maxWeek = getISOWeek(today);
+
+  const prevWeek1 = new Date(today);
+  prevWeek1.setDate(today.getDate() - 7);
+
+  const prevWeek2 = new Date(today);
+  prevWeek2.setDate(today.getDate() - 14);
+
+  const minWeek = getISOWeek(prevWeek2);
+
 
   const parseWeek = (weekValue) => {
     if (!weekValue || !weekValue.includes("-W")) return { year: null, week: null };
@@ -75,28 +128,11 @@ const PerformanceMetrics = () => {
     }
   }, [navigatedWeek]);
 
+  //Reset duplicate error when employee or week changes
   useEffect(() => {
-    const checkDuplicate = async () => {
+    if (duplicateError) {
       setDuplicateError("");
-
-      if (!employeeId || !selectedWeek) return;
-
-      const { year, week } = parseWeek(selectedWeek);
-
-      try {
-        const res = await axiosInstance.get(
-          `/performance/check-duplicate/?emp_id=${employeeId}&year=${year}&week=${week}`
-        );
-
-        if (res.data.exists) {
-          setDuplicateError("⚠ Record already exists for this employee for this week.");
-        }
-      } catch (err) {
-        console.error("Duplicate check failed:", err);
-      }
-    };
-
-    checkDuplicate();
+    }
   }, [employeeId, selectedWeek]);
 
 
@@ -121,8 +157,6 @@ const PerformanceMetrics = () => {
           setEvaluationId(evalData.id);
 
           const metrics = evalData.metrics || {};
-
-          console.log("🔍 RAW METRICS FROM BACKEND:", metrics);
 
 
           const metricFields = [
@@ -178,16 +212,28 @@ const PerformanceMetrics = () => {
     loadEmployeeEvaluation();
   }, [employee]);
 
-  // 🔹 SEARCH EMPLOYEE
   const handleSearch = async () => {
     if (!employeeId) {
-      alert("Please enter an Employee ID");
+      alert("Please enter Employee ID.");
       return;
     }
 
+    setDuplicateError("");
     setLoading((prev) => ({ ...prev, search: true }));
 
+    const { year, week } = parseWeek(selectedWeek);
+
     try {
+      // DUPLICATE CHECK
+      const duplicateCheck = await axiosInstance.get(
+        `/performance/check-duplicate/?emp_id=${employeeId}&year=${year}&week=${week}`
+      );
+
+      if (duplicateCheck.data.exists) {
+        setDuplicateError("⚠ Record already exists for this employee for this week.");
+      }
+
+      // ALWAYS FETCH EMPLOYEE DETAILS
       const res = await axiosInstance.get(`employee/employees/${employeeId}/`);
 
       if (res.data) {
@@ -210,13 +256,11 @@ const PerformanceMetrics = () => {
             "Not Assigned",
         });
       } else {
-        alert("Employee not found!");
         setEmployeeData({ name: "", department: "", manager: "" });
       }
     } catch (error) {
-      console.error("Error fetching employee:", error);
-      alert("Employee not found or server error!");
-      setEmployeeData({ name: "", department: "", manager: "" });
+      console.error("Error:", error);
+      alert("Error while processing request.");
     } finally {
       setLoading((prev) => ({ ...prev, search: false }));
     }
@@ -229,29 +273,56 @@ const PerformanceMetrics = () => {
   const handleScoreChange = (index, value) => {
     const updatedScores = [...scores];
 
-    // Allow empty input (when user is typing)
+    // Allow empty while typing
     if (value === "") {
       updatedScores[index] = "";
       setScores(updatedScores);
       return;
     }
 
-    const num = Number(value);
-
-    // If invalid (>100), revert to last valid value
-    if (num > 100) {
-      alert("Score cannot exceed 100.");
-
-      // Restore previous valid value (max 2 digit)
-      updatedScores[index] = scores[index] || "";
-
+    // llow a single "0" as valid value
+    if (value === "0") {
+      updatedScores[index] = "0";
       setScores(updatedScores);
       return;
     }
 
-    // Valid input: save it
+    // Block values that START with 0 and have more digits: 01, 09, 010, 005 etc.
+    if (value.length > 1 && value[0] === "0") {
+        alert("Invalid score format");
+
+      // revert to last valid value
+      updatedScores[index] = scores[index] ?? "";
+      setScores(updatedScores);
+      return;
+    }
+
+    // Normal number validation
+    const num = Number(value);
+
+    if (Number.isNaN(num) || num < 0) {
+      alert("Please enter a valid number (0–100).");
+      updatedScores[index] = scores[index] ?? "";
+      setScores(updatedScores);
+      return;
+    }
+
+    if (num > 100) {
+      alert("Score cannot exceed 100.");
+      updatedScores[index] = scores[index] ?? "";
+      setScores(updatedScores);
+      return;
+    }
+
+    // ✅ Keep as typed (no trimming/normalizing), since we already blocked bad formats
     updatedScores[index] = value;
     setScores(updatedScores);
+  };
+
+
+  const handleCancel = () => {
+    setScores(Array(measurements.length).fill(""));
+    setComments(Array(measurements.length).fill(""));
   };
 
 
@@ -261,7 +332,7 @@ const PerformanceMetrics = () => {
     .filter((s) => s !== "")
     .reduce((sum, val) => sum + Number(val), 0);
 
-  // 🔹 PRINT HANDLER
+  //PRINT HANDLER
   const handlePrint = () => {
     setLoading((prev) => ({ ...prev, print: true }));
 
@@ -485,8 +556,30 @@ const PerformanceMetrics = () => {
     }
   };
 
+  
+
   return (
   <div className="container mt-0">
+    <style>
+    {`
+    input[type="week"] {
+      color: #212529 !important;
+    }
+
+    input[type="week"]::-webkit-datetime-edit {
+      color: #212529 !important;
+    }
+
+    input[type="week"]::-webkit-datetime-edit-text {
+      color: #212529 !important;
+    }
+
+    input[type="week"]::-webkit-datetime-edit-year-field,
+    input[type="week"]::-webkit-datetime-edit-week-field {
+      color: #212529 !important;
+    }
+    `}
+    </style>
     <div className="d-flex justify-content-between text-black">
       <h5>EMPLOYEE PERFORMANCE METRICS</h5>
     </div>
@@ -564,9 +657,12 @@ const PerformanceMetrics = () => {
                   <input
                     type="week"
                     className="form-control"
-                    style={{ height: "38px" }}   // same as other inputs
+                    style={weekInputStyle}
                     value={selectedWeek}
                     onChange={(e) => setSelectedWeek(e.target.value)}
+                    min={minWeek}
+                    max={maxWeek}
+                    title="Only current and last 2 weeks are allowed"
                   />
                 </div>
 
@@ -687,7 +783,7 @@ const PerformanceMetrics = () => {
             <button
               type="button"
               className="btn btn-secondary px-4 mb-2"
-              onClick={() => navigate("/base/employeeperformance")}
+              onClick={mode === "view" ? () => navigate("/base/employeeperformance") : handleCancel}
             >
               {mode === "view" ? "Back" : "Cancel"}
             </button>
