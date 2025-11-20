@@ -175,10 +175,12 @@ const LoginDetails = () => {
     setSortConfig({ key, direction });
   };
 
+  const sourceData = allEmployees.length > 0 ? allEmployees : employees;
+
   const filteredData =
     search.trim() === ""
-      ? employees
-      : allEmployees.filter(
+      ? sourceData
+      : sourceData.filter(
           (emp) =>
             emp.full_name?.toLowerCase().includes(search.toLowerCase()) ||
             emp.emp_id?.toLowerCase().includes(search.toLowerCase()) ||
@@ -188,10 +190,16 @@ const LoginDetails = () => {
 
   const sortedData = [...filteredData].sort((a, b) => {
     if (!sortConfig.key) return 0;
-    if (a[sortConfig.key] < b[sortConfig.key])
+
+    const aVal = a[sortConfig.key] ?? "";
+    const bVal = b[sortConfig.key] ?? "";
+
+    if (String(aVal).toLowerCase() < String(bVal).toLowerCase())
       return sortConfig.direction === "asc" ? -1 : 1;
-    if (a[sortConfig.key] > b[sortConfig.key])
+
+    if (String(aVal).toLowerCase() > String(bVal).toLowerCase())
       return sortConfig.direction === "asc" ? 1 : -1;
+
     return 0;
   });
 
@@ -205,6 +213,33 @@ const LoginDetails = () => {
     const newUrl = `${API_URL}?page=${pageNum}`;
     fetchEmployees(newUrl);
   };
+
+  // Always-visible sort icons
+  const SortIcon = ({ column }) => {
+    const active = sortConfig.key === column;
+    const isAsc = sortConfig.direction === "asc";
+
+    return (
+      <span style={{ marginLeft: "5px", fontSize: "11px" }}>
+        <span
+          style={{
+            color: active && isAsc ? "#0d6efd" : "#ccc",
+            marginRight: "1px",
+          }}
+        >
+          ▲
+        </span>
+        <span
+          style={{
+            color: active && !isAsc ? "#0d6efd" : "#ccc",
+          }}
+        >
+          ▼
+        </span>
+      </span>
+    );
+  };
+
 
   // ==================================================
   // RENDER UI
@@ -281,24 +316,19 @@ const LoginDetails = () => {
             <table className="table table-bordered table-hover align-middle text-center">
               <thead className="table-light">
                 <tr>
-                  <th
-                    onClick={() => handleSort("emp_id")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Emp ID {getSortIcon("emp_id")}
+                  <th onClick={() => handleSort("emp_id")} style={{ cursor: "pointer" }}>
+                    Emp ID <SortIcon column="emp_id" />
                   </th>
-                  <th
-                    onClick={() => handleSort("full_name")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Name {getSortIcon("full_name")}
+
+                  <th onClick={() => handleSort("full_name")} style={{ cursor: "pointer" }}>
+                    Name <SortIcon column="full_name" />
                   </th>
+
                   <th>Username</th>
                   <th>Password</th>
                   <th>Action</th>
                 </tr>
               </thead>
-
               <tbody>
 
                 {loading ? (

@@ -13,6 +13,7 @@ const PerformanceMetrics = () => {
     weeklyCalendar: "",
     presentDate: "",
   });
+  const [duplicateError, setDuplicateError] = useState("");
 
   const [evaluationId, setEvaluationId] = useState(null);
   const [scores, setScores] = useState([]);
@@ -74,6 +75,29 @@ const PerformanceMetrics = () => {
     }
   }, [navigatedWeek]);
 
+  useEffect(() => {
+    const checkDuplicate = async () => {
+      setDuplicateError("");
+
+      if (!employeeId || !selectedWeek) return;
+
+      const { year, week } = parseWeek(selectedWeek);
+
+      try {
+        const res = await axiosInstance.get(
+          `/performance/check-duplicate/?emp_id=${employeeId}&year=${year}&week=${week}`
+        );
+
+        if (res.data.exists) {
+          setDuplicateError("⚠ Record already exists for this employee for this week.");
+        }
+      } catch (err) {
+        console.error("Duplicate check failed:", err);
+      }
+    };
+
+    checkDuplicate();
+  }, [employeeId, selectedWeek]);
 
 
   useEffect(() => {
@@ -469,6 +493,11 @@ const PerformanceMetrics = () => {
 
     <div className="card-body">
       <div className="card">
+        {duplicateError && (
+          <div className="alert alert-danger text-center fw-bold my-2">
+            {duplicateError}
+          </div>
+        )}
 
         {/* Search + Buttons */}
         <div className="d-flex justify-content-between align-items-center mb-2 mt-2 p-2">
@@ -667,7 +696,7 @@ const PerformanceMetrics = () => {
               <button
                 type="submit"
                 className="btn btn-primary px-4 mb-2"
-                disabled={loading.submit}
+                disabled={loading.submit || duplicateError}
               >
                 {loading.submit ? (
                   <>

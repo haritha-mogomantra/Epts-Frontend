@@ -211,6 +211,31 @@ function EmployeePerformance() {
   const startRecord = (page - 1) * pageSize + 1;
   const endRecord = Math.min(startRecord + visibleCount - 1, totalRecords);
 
+  const SortIcon = ({ column, sortConfig }) => {
+    const active = sortConfig.key === column;
+    const isAsc = sortConfig.direction === "asc";
+
+    return (
+      <span style={{ marginLeft: "5px", fontSize: "11px" }}>
+        <span
+          style={{
+            color: active && isAsc ? "#0d6efd" : "#ccc",
+            marginRight: "1px",
+          }}
+        >
+          ▲
+        </span>
+        <span
+          style={{
+            color: active && !isAsc ? "#0d6efd" : "#ccc",
+          }}
+        >
+          ▼
+        </span>
+      </span>
+    );
+  };
+
  
   return (
     <div className="container">
@@ -286,18 +311,18 @@ function EmployeePerformance() {
               <thead className="table-dark">
                 <tr>
                   <th onClick={() => handleSort("emp_id")} style={{ cursor: "pointer" }}>
-                    Emp ID {getSortIcon("emp_id")}
+                    Emp ID <SortIcon column="emp_id" sortConfig={sortConfig} />
                   </th>
                   <th onClick={() => handleSort("full_name")} style={{ cursor: "pointer" }}>
-                    Full Name {getSortIcon("full_name")}
+                    Full Name <SortIcon column="full_name" sortConfig={sortConfig} />
                   </th>
                   <th>Department</th>
                   <th onClick={() => handleSort("total_score")} style={{ cursor: "pointer" }}>
-                    Score {getSortIcon("total_score")}
+                    Score <SortIcon column="total_score" sortConfig={sortConfig} />
                   </th>
                   <th>Evaluation Period</th>
                   <th onClick={() => handleSort("rank")} style={{ cursor: "pointer" }}>
-                    Rank {getSortIcon("rank")}
+                    Rank <SortIcon column="rank" sortConfig={sortConfig} />
                   </th>
                   <th>Actions</th>
                 </tr>

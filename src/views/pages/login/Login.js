@@ -145,12 +145,14 @@ export default function Login() {
       if (response.data.success === true) {
         const role = response.data.role?.toLowerCase();
 
-        //Store tokens and user info (consistent keys)
         localStorage.setItem("access_token", response.data.token);
         localStorage.setItem("refresh_token", response.data.refresh);
         localStorage.setItem("role", response.data.role);
         localStorage.setItem("username", response.data.username);
         localStorage.setItem("userId", response.data.emp_id);
+
+        localStorage.setItem("full_name", response.data.full_name);
+        localStorage.setItem("emp_id", response.data.emp_id);
 
         setAlert({
           show: true,
@@ -164,7 +166,7 @@ export default function Login() {
           } else if (role === "manager") {
             navigate("/dashboard");
           } else if (role === "employee") {
-            navigate("/pages/employeeprofile");
+            navigate("/employee-dashboard");
           } else {
             navigate("/dashboard");
           }

@@ -84,7 +84,9 @@ const routes = [
   {path : '/pages/adminprofile', name: 'AdminProfile' , element:AdminProfile},
   {path: '/pages/employeeprofile', name:'EmployeeProfile', element:EmployeeProfile},
 
-  { path: '/pages/profile', name: 'Profile', element: Profile },
+
+  { path: '/pages/profile', name: 'Profile', element: AdminProfile },
+  
   { path: '/pages/change-password', name: 'ChangePassword', element: ChangePassword },
 
  

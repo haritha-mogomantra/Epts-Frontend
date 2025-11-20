@@ -1,4 +1,4 @@
- import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Profile from "../../../components/profile/Profile";
  
@@ -21,16 +21,17 @@ const AdminProfile = () => {
           }
         );
  
-        // Response should match:
-        // { personal: {}, professional: {}, address: {} }
- 
+        const d = response.data;
+
         setProfileData({
-          title: "ADMIN PROFILE",
-          editable: true,
-          personal: response.data.personal || {},
-          professional: response.data.professional || {},
-          address: response.data.address || {},
+            title: "ADMIN PROFILE",
+            editable: true,
+
+            personal: d.personal || {},
+            professional: d.professional || {},
+            address: d.address || {},
         });
+
       } catch (error) {
         console.error("Failed to load admin profile", error);
       } finally {

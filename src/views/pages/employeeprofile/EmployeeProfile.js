@@ -9,57 +9,65 @@ const EmployeeProfile = () => {
   const token = localStorage.getItem("access_token");
   const userId = localStorage.getItem("userId"); // unique ID from login response
  
-  useEffect(() => {
+  const empId = localStorage.getItem("emp_id");  // from login
+
+    useEffect(() => {
     const fetchEmployeeProfile = async () => {
-      try {
+        try {
         const response = await axios.get(
-          `http://127.0.0.1:8000/api/employee/profile/`,
-          {
+            `http://127.0.0.1:8000/api/employee/employees/${empId}/`,
+            {
             headers: {
-              Authorization: `Bearer ${token}`,
+                Authorization: `Bearer ${token}`,
             },
-          }
+            }
         );
- 
+
         setProfileData({
             title: "EMPLOYEE PROFILE",
-            editable: false,
+            editable: true,
+
             personal: {
                 emp_id: response.data.emp_id,
-                first_name: response.data.first_name,
-                last_name: response.data.last_name,
-                email: response.data.email,
-                contact_number: response.data.contact_number,
-                gender: response.data.gender,
-                dob: response.data.dob,
+                first_name: response.data.user.first_name,
+                last_name: response.data.user.last_name,
+                email: response.data.user.email,
+                contact_number: response.data.contact_number || "",
+                gender: response.data.gender || "",
+                dob: response.data.dob || "",
+                profile_picture_url: response.data.profile_picture_url || "",
             },
+
             professional: {
-                role: response.data.role,
-                department: response.data.department,
+                role: response.data.user.role,
+                department: response.data.department_name,
                 department_code: response.data.department_code,
                 designation: response.data.designation,
                 project_name: response.data.project_name,
                 joining_date: response.data.joining_date,
                 manager_name: response.data.manager_name,
-                reporting_manager_name: response.data.reporting_manager_name,
+                reporting_manager_name: response.data.manager_name, // same field
             },
+
             address: {
-                address_line1: response.data.address_line1,
-                address_line2: response.data.address_line2,
-                city: response.data.city,
-                state: response.data.state,
-                pincode: response.data.pincode,
-            },
+                address_line1: response.data.address_line1 || "",
+                address_line2: response.data.address_line2 || "",
+                city: response.data.city || "",
+                state: response.data.state || "",
+                pincode: response.data.pincode || "",
+            }
             });
-      } catch (error) {
+
+        } catch (error) {
         console.error("Failed to fetch employee profile", error);
-      } finally {
+        } finally {
         setLoading(false);
-      }
+        }
     };
- 
+
     fetchEmployeeProfile();
-  }, [userId, token]);
+    }, [empId, token]);
+
  
   if (loading) return <h4 className="text-center mt-4">Loading...</h4>;
   if (!profileData)

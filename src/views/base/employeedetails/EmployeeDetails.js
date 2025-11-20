@@ -39,6 +39,13 @@ function EmployeeTables() {
     key: null,
     direction: "asc",
   });
+  const [pageLoading, setPageLoading] = useState(true);
+
+  const token = localStorage.getItem("access_token");
+  const authHeaders = {
+    "Authorization": `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
 
 
   const managerLabel = (m) => {
@@ -71,7 +78,9 @@ function EmployeeTables() {
 
     try {
       const url = `${API_URL}?page=${page}${orderingParam}`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: authHeaders,
+      });
       const data = await res.json();
 
       setEmployees(data.results || []);
@@ -93,7 +102,9 @@ function EmployeeTables() {
       let allEmployees = [];
       let page = 1;
       while (true) {
-        const res = await fetch(`${API_URL}?page=${page}`);
+        const res = await fetch(`${API_URL}?page=${page}`, {
+          headers: authHeaders,
+        });
         const data = await res.json();
 
         if (!data.results || data.results.length === 0) break;
@@ -110,18 +121,20 @@ function EmployeeTables() {
   };
 
   useEffect(() => {
+    setPageLoading(true); 
     let ordering = "";
     if (sortConfig.key) {
       ordering = `&ordering=${
-        sortConfig.direction === "asc"
-          ? sortConfig.key
-          : "-" + sortConfig.key
+        sortConfig.direction === "asc" ? sortConfig.key : "-" + sortConfig.key
       }`;
     }
 
-    fetchEmployees(currentPage, ordering);
+    fetchEmployees(1, ordering).finally(() => {
+      setPageLoading(false);
+    });
+
     fetchManagers();
-  }, [currentPage, sortConfig]);
+  }, []);
 
 
   useEffect(() => {
@@ -143,7 +156,7 @@ function EmployeeTables() {
   // Debounce API call by 500ms after typing stops
   searchTimeoutRef.current = setTimeout(async () => {
     try {
-      // 🟢 If search box is empty, restore paginated data (no reload flicker)
+      // If search box is empty, restore paginated data (no reload flicker)
       if (!value) {
         if (isSearching) setIsSearching(false);
         setLoading(true);
@@ -152,14 +165,17 @@ function EmployeeTables() {
         return;
       }
 
-      // 🟢 Avoid redundant refresh
+      // Avoid redundant refresh
       if (value === searchTerm && employees.length > 0 && isSearching) return;
 
       setIsSearching(true);
       setLoading(true);
 
-      // ✅ Backend search (emp_id + first_name + last_name only)
-      const res = await fetch(`${API_URL}?search=${encodeURIComponent(value)}`);
+      // Backend search (emp_id + first_name + last_name only)
+      const res = await fetch(
+        `${API_URL}?search=${encodeURIComponent(value)}`,
+        { headers: authHeaders }
+      );
       if (!res.ok) throw new Error("Search request failed");
 
       const data = await res.json();
@@ -234,7 +250,10 @@ function EmployeeTables() {
     if (!window.confirm("Are you sure you want to delete this employee?")) return;
     setLoading(true);
     try {
-      await fetch(`${API_URL}${empId}/`, { method: "DELETE" });
+      await fetch(`${API_URL}${empId}/`, {
+        method: "DELETE",
+        headers: authHeaders,
+      });
       
       if (isSearching) {
         const allEmployees = await fetchAllEmployees();
@@ -309,7 +328,7 @@ function EmployeeTables() {
     try {
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify(payload),
       });
 
@@ -401,6 +420,9 @@ function EmployeeTables() {
     try {
       const res = await fetch(CSV_UPLOAD_URL, {
         method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
         body: formDataCSV,
       });
 
@@ -466,7 +488,10 @@ function EmployeeTables() {
     setSearchTerm("");
 
     try {
-      const res = await fetch(`${API_URL}?ordering=${orderingParam}&page=1`);
+      const res = await fetch(
+      `${API_URL}?ordering=${orderingParam}&page=1`,
+      { headers: authHeaders }
+    );
       const data = await res.json();
 
       setEmployees(
@@ -487,6 +512,30 @@ function EmployeeTables() {
     }
   };
 
+  const SortIcon = ({ column, sortConfig }) => {
+    const active = sortConfig.key === column;
+    const isAsc = sortConfig.direction === "asc";
+
+    return (
+      <span style={{ marginLeft: "5px", fontSize: "11px" }}>
+        <span
+          style={{
+            color: active && isAsc ? "#0d6efd" : "#ccc",
+            marginRight: "1px",
+          }}
+        >
+          ▲
+        </span>
+        <span
+          style={{
+            color: active && !isAsc ? "#0d6efd" : "#ccc",
+          }}
+        >
+          ▼
+        </span>
+      </span>
+    );
+  };
 
 
   return (
@@ -548,21 +597,17 @@ function EmployeeTables() {
               <thead className="table-info">
                 <tr>
                   <th onClick={() => handleSort("user__emp_id")} style={{ cursor: "pointer" }}>
-                    Emp ID {sortConfig.key === "user__emp_id" ? (sortConfig.direction === "asc" ? "↑" : "↓") : ""}
+                    Emp ID <SortIcon column="user__emp_id" sortConfig={sortConfig} />
                   </th>
-
-                  <th onClick={() => handleSort("full_name")} style={{ cursor: "pointer" }}>
-                    Name {sortConfig.key === "full_name" ? (sortConfig.direction === "asc" ? "↑" : "↓") : ""}
+                  <th onClick={() => handleSort("user__first_name")} style={{ cursor: "pointer" }}>
+                    Name <SortIcon column="user__first_name" sortConfig={sortConfig} />
                   </th>
                   <th>Email</th>
                   <th>Designation</th>
                   <th>Project</th>
                   <th>Manager</th>
-                  <th
-                    onClick={() => handleSort("joining_sort")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Joining Date {sortConfig.key === "joining_sort" ? (sortConfig.direction === "asc" ? "↑" : "↓") : ""}
+                  <th onClick={() => handleSort("joining_sort")} style={{ cursor: "pointer" }}>
+                    Joining Date <SortIcon column="joining_sort" sortConfig={sortConfig} />
                   </th>
                   <th>Department</th>
                   <th>Status</th>
@@ -935,8 +980,7 @@ function EmployeeTables() {
           <div className="modal-backdrop fade show"></div>
         </>
       )}
-
-      {loading && (
+      {pageLoading && (
         <div
           style={{
             position: "fixed",
