@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import {
   CContainer,
   CDropdown,
+  CDropdownHeader ,
   CDropdownItem,
   CDropdownMenu,
   CDropdownToggle,
@@ -169,7 +170,8 @@ const AppHeader = () => {
               </CDropdownToggle>
 
               <CDropdownMenu className="pt-0">
-                <CDropdownItem header>Notifications</CDropdownItem>
+                <CDropdownHeader>Notifications</CDropdownHeader>
+
 
                 {notifications.length > 0 ? (
                   notifications.map((note) => (

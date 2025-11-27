@@ -1,198 +1,264 @@
 import React, { useEffect, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { useLocation } from "react-router-dom";
-
-
-const employeeDatabase = {
-  1001: { name: "Anil", department: "Fullstack", manager: "Haritha" },
-  1002: { name: "Gopi", department: "Backend", manager: "Haritha" },
-  1003: { name: "Sandeep", department: "Database", manager: "Haritha" },
-  1004: { name: "Srinivas", department: "Testing", manager: "Haritha" },
-};
-
-
-const performanceDatabase = {
-  1001: {
-    "Week 43 (Oct 20 - Oct 26)": {
-      scores: {
-        "Communication Skills": 80,
-        "Multi Tasking Abilities": 75,
-        "Team Skills": 85,
-        "Technical Skills": 90,
-        "Job Knowledge": 88,
-        "Productivity": 86,
-        "Creativity": 82,
-        "Work Quality": 87,
-        "Professionalism": 85,
-        "Work Consistency": 83,
-        "Attitude": 90,
-        "Cooperation": 92,
-        "Dependability": 89,
-        "Attendance": 100,
-        "Punctuality": 98,
-      },
-      comments: {
-        "Communication Skills": "Clear and concise",
-        "Multi Tasking Abilities": "Handles tasks well",
-        "Team Skills": "Very cooperative",
-        "Technical Skills": "Excellent problem solver",
-        "Job Knowledge": "Good understanding",
-        "Productivity": "Meets targets",
-        "Creativity": "Innovative ideas",
-        "Work Quality": "High standard",
-        "Professionalism": "Maintains decorum",
-        "Work Consistency": "Reliable output",
-        "Attitude": "Positive and proactive",
-        "Cooperation": "Supports team members",
-        "Dependability": "Trustworthy",
-        "Attendance": "Always present",
-        "Punctuality": "Always on time",
-      },
-    },
-    "Week 42 (Oct 13 - Oct 19)": {
-      scores: {
-        "Communication Skills": 75,
-        "Multi Tasking Abilities": 72,
-        "Team Skills": 80,
-        "Technical Skills": 85,
-        "Job Knowledge": 82,
-        "Productivity": 80,
-        "Creativity": 78,
-        "Work Quality": 81,
-        "Professionalism": 83,
-        "Work Consistency": 79,
-        "Attitude": 88,
-        "Cooperation": 89,
-        "Dependability": 85,
-        "Attendance": 98,
-        "Punctuality": 95,
-      },
-      comments: {
-        "Communication Skills": "Improve",
-        "Multi Tasking Abilities": "Handles pressure better",
-        "Team Skills": "Good support",
-        "Technical Skills": "Learning advanced concepts",
-        "Job Knowledge": "Good",
-        "Productivity": "Acceptable level",
-        "Creativity": "Good",
-        "Work Quality": "Decent work",
-        "Professionalism": "Good ",
-        "Work Consistency": "Stable",
-        "Attitude": "Good team player",
-        "Cooperation": "Helpful",
-        "Dependability": "reliable",
-        "Attendance": "Very regular",
-        "Punctuality": "Usually on time",
-      },
-    },
-  },
-};
-
-
-const measurementFields = [
-  "Communication Skills",
-  "Multi Tasking Abilities",
-  "Team Skills",
-  "Technical Skills",
-  "Job Knowledge",
-  "Productivity",
-  "Creativity",
-  "Work Quality",
-  "Professionalism",
-  "Work Consistency",
-  "Attitude",
-  "Cooperation",
-  "Dependability",
-  "Attendance",
-  "Punctuality",
-];
+import axiosInstance from "../../../utils/axiosInstance";
+ 
 
 const ViewPerformance = () => {
-  const location = useLocation();
-  const employeeId = location.state?.employeeId || 1001; // Default dummy
 
+  const location = useLocation();
+  const employeeId = location.state?.employeeId || localStorage.getItem("emp_id");
   const [employeeInfo, setEmployeeInfo] = useState({
-    empId:"",
+
+    empId: "",
     name: "",
     department: "",
     manager: "",
   });
-
-  
+ 
   const [selectedWeek, setSelectedWeek] = useState("");
+  const [allWeeks, setAllWeeks] = useState([]);
   const [performanceData, setPerformanceData] = useState({
     scores: {},
     comments: {},
   });
+  const [measurementFields, setMeasurementFields] = useState([]);
 
-  useEffect(() => {
-    const emp = employeeDatabase[employeeId];
-    if (emp) setEmployeeInfo({empId:employeeId, ...emp});
-
-    const empPerf = performanceDatabase[employeeId];
-    if (empPerf) {
-      const allWeeks = Object.keys(empPerf);
-      const latestWeek = allWeeks[allWeeks.length - 1];
-      setSelectedWeek(latestWeek);
-      setPerformanceData(empPerf[latestWeek]);
-    }
-  }, [employeeId]);
-  
-
-  const handleWeekChange = (e) => {
-    const week = e.target.value;
-    setSelectedWeek(week);
-    setPerformanceData(performanceDatabase[employeeId][week]);
+  const convertToWeekInput = (weekString) => {
+    if (!weekString) return "";
+    const weekNumber = weekString.replace("Week ", "").trim();
+    const year = new Date().getFullYear();
+    return `${year}-W${weekNumber.toString().padStart(2, "0")}`;
   };
 
-  const totalScore = measurementFields.reduce((sum, field) => {
-    const val = performanceData.scores[field];
+  const convertFromWeekInput = (weekInput) => {
+    if (!weekInput) return "";
+    const week = weekInput.split("-W")[1];
+    return `Week ${parseInt(week, 10)}`;
+  };
+
+
+ 
+  // -------------------------------
+
+  //  FETCH EMPLOYEE DATA FROM BACKEND
+
+  // -------------------------------
+
+  const fetchEmployeeDetails = async () => {
+
+    try {
+
+      const res = await axiosInstance.get(`employee/employees/employee/${employeeId}/`);
+      console.log("EMPLOYEE API DATA =>", res.data);
+
+      setEmployeeInfo({
+        empId: res.data.emp_id || res.data.empId || res.data.id || employeeId,
+        name:
+          res.data.name ||
+          res.data.full_name ||
+          res.data.employee_name ||
+          `${res.data.first_name || ""} ${res.data.last_name || ""}`.trim(),
+        department:
+          res.data.department ||
+          res.data.department_name ||
+          res.data.dept_name ||
+          "",
+        manager:
+          res.data.manager ||
+          res.data.reporting_manager ||
+          res.data.manager_name ||
+          "",
+      });
+
+    } catch (err) {
+      console.error("Employee fetch error:", err);
+    }
+  };
+ 
+  // ----------------------------------------
+
+  //  FETCH PERFORMANCE DATA FROM BACKEND
+
+  // ----------------------------------------
+
+  const fetchPerformance = async () => {
+    try {
+      // ✅ Get system latest week (current processing week)
+      const latestWeekRes = await axiosInstance.get("performance/latest-week/");
+
+      let { year, week } = latestWeekRes.data;
+
+      // ✅ Latest created performance week = current system week - 1
+      let displayWeek = week - 1;
+      let displayYear = year;
+
+      // ✅ Handle year rollover
+      if (displayWeek === 0) {
+        displayWeek = 52;
+        displayYear = year - 1;
+      }
+
+      const weekNumber = displayWeek;
+      const finalYear = displayYear;
+
+      const weekInputValue = `${year}-W${weekNumber.toString().padStart(2, "0")}`;
+      setSelectedWeek(weekInputValue);
+
+      const weekResponse = await axiosInstance.get(
+        `performance/performance/by-employee-week/`,
+        {
+          params: {
+            emp_id: employeeId,
+            week: weekNumber,
+            year: year,
+          },
+        }
+      );
+
+      const weekData = weekResponse.data;
+      setPerformanceData(weekData);
+
+      let fields = [];
+
+      if (weekData?.scores && Object.keys(weekData.scores).length > 0) {
+        fields = Object.keys(weekData.scores);
+      } else if (weekData?.metrics?.length > 0) {
+        fields = weekData.metrics.map((m) => m.name);
+      }
+
+      setMeasurementFields(fields);
+    } catch (err) {
+      console.error("Performance fetch error:", err);
+    }
+  };
+ 
+  // ----------------------------------------
+
+  //  USE EFFECT TO LOAD DATA ONCE
+
+  // ----------------------------------------
+
+  useEffect(() => {
+    fetchEmployeeDetails();
+    fetchPerformance();
+  }, [employeeId]);
+ 
+  // ----------------------------------------
+
+  //  WHEN WEEK IS CHANGED
+
+  // ----------------------------------------
+
+
+  const handleWeekChange = async (e) => {
+    const weekInputValue = e.target.value;
+    if (!weekInputValue) return;
+    setSelectedWeek(weekInputValue);
+
+    const backendWeek = parseInt(weekInputValue.split("-W")[1], 10);
+    const year = weekInputValue.split("-W")[0];
+
+    try {
+      const res = await axiosInstance.get(
+        `performance/performance/by-employee-week/`,
+        {
+          params: {
+            emp_id: employeeId,
+            week: backendWeek,
+            year: year,
+          },
+        }
+      );
+
+      const weekData = res.data;
+      setPerformanceData(weekData);
+
+      let fields = [];
+
+      if (weekData?.scores && Object.keys(weekData.scores).length > 0) {
+        fields = Object.keys(weekData.scores);
+      } else if (weekData?.metrics?.length > 0) {
+        fields = weekData.metrics.map((m) => m.name);
+      }
+
+      setMeasurementFields(fields);
+    } catch (err) {
+      console.error("Week change error:", err);
+    }
+  };
+
+  // ----------------------------------------
+
+  // TOTAL SCORE CALCULATION
+
+  // ----------------------------------------
+
+  const fallbackMetrics = [
+    "Communication Skills",
+    "Multi Tasking Abilities",
+    "Team Skills",
+    "Technical Skills",
+    "Job Knowledge",
+    "Productivity",
+    "Creativity",
+    "Work Quality",
+    "Professionalism",
+    "Work Consistency",
+    "Attitude",
+    "Cooperation",
+    "Dependability",
+    "Attendance",
+    "Punctuality"
+  ];
+
+  const displayMetrics =
+    measurementFields.length > 0 ? measurementFields : fallbackMetrics;
+
+  const totalScore = displayMetrics.reduce((sum, field) => {
+    const val = performanceData?.scores?.[field];
     return sum + (typeof val === "number" ? val : 0);
   }, 0);
-
+ 
   return (
     <div className="container mt-2">
-      
+
+      {/* HEADER + WEEK DROPDOWN */}
       <div className="d-flex justify-content-between align-items-center mb-2">
         <h5>EMPLOYEE PERFORMANCE</h5>
-        <div style={{ width: "250px" }}>
-          <select
-            className="form-select"
+      <div style={{ width: "250px" }}>
+        <input
+            type="week"
+            className="form-control"
             value={selectedWeek}
             onChange={handleWeekChange}
-          >
-            {Object.keys(performanceDatabase[employeeId]).map((week) => (
-              <option key={week} value={week}>
-                {week}
-              </option>
-            ))}
-          </select>
-        </div>
+          />
       </div>
-
-      
+  </div>
+ 
+      {/* EMPLOYEE INFO */}
       <div className="card mb-3 p-3">
-        <div className="row">
-          <div className="col-md-3">
-            <label className="fw-bold">EmpId:</label>
-            <p>{employeeInfo.empId}</p>
-          </div>
-          <div className="col-md-3">
-            <label className="fw-bold">Employee Name:</label>
-            <p>{employeeInfo.name}</p>
-          </div>
-          <div className="col-md-3">
-            <label className="fw-bold">Department:</label>
-            <p>{employeeInfo.department}</p>
-          </div>
-          <div className="col-md-3">
-            <label className="fw-bold">Manager:</label>
-            <p>{employeeInfo.manager}</p>
-          </div>
-        </div>
+      <div className="row">
+      <div className="col-md-3">
+        <label className="fw-bold">EmpId:</label>
+          <p>{employeeInfo.empId}</p>
       </div>
-
-      
+      <div className="col-md-3">
+        <label className="fw-bold">Employee Name:</label>
+          <p>{employeeInfo.name}</p>
+      </div>
+<div className="col-md-3">
+<label className="fw-bold">Department:</label>
+<p>{employeeInfo.department}</p>
+</div>
+<div className="col-md-3">
+<label className="fw-bold">Manager:</label>
+<p>{employeeInfo.manager}</p>
+</div>
+</div>
+</div>
+ 
+      {/* PERFORMANCE TABLE */}
       <div className="table-responsive">
         <table className="table table-bordered align-middle text-start">
           <thead className="table-primary">
@@ -202,14 +268,35 @@ const ViewPerformance = () => {
               <th>Comments/Remarks</th>
             </tr>
           </thead>
-          <tbody>
-            {measurementFields.map((field, index) => (
-              <tr key={index}>
-                <td className="text-start fw-bold">{field}</td>
-                <td>{performanceData.scores[field] ?? "-"}</td>
-                <td>{performanceData.comments[field] ?? "-"}</td>
-              </tr>
-            ))}
+        <tbody>
+
+
+        {Array.isArray(displayMetrics) && displayMetrics.length > 0 && displayMetrics.map((field, index) => {
+
+          const metricObj = Array.isArray(performanceData?.metrics)
+            ? performanceData.metrics.find(m => m.name === field || m.metric === field)
+            : null;
+
+          const score =
+            performanceData?.scores?.[field] ?? 
+            performanceData?.values?.[field] ?? 
+            metricObj?.score ?? 
+            metricObj?.value ?? "-";
+
+          const comment =
+            performanceData?.comments?.[field] ?? 
+            metricObj?.comment ?? 
+            metricObj?.remarks ?? "-";
+
+          return (
+            <tr key={index}>
+              <td className="fw-bold">{field}</td>
+              <td>{score}</td>
+              <td>{comment}</td>
+            </tr>
+          );
+        })}
+      
             <tr className="fw-bold table-secondary">
               <td>Total Score</td>
               <td>{totalScore}</td>
@@ -218,8 +305,8 @@ const ViewPerformance = () => {
           </tbody>
         </table>
       </div>
-    </div>
+  </div>
   );
 };
-
+      
 export default ViewPerformance;

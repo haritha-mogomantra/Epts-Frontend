@@ -46,6 +46,7 @@ const PerformanceMetrics = () => {
     submit: false,
     print: false,
   });
+  const [performanceList, setPerformanceList] = useState([]);
 
   const [measurements, setMeasurements] = useState([
     "Communication Skills",
@@ -76,18 +77,42 @@ const PerformanceMetrics = () => {
     const fetchLatestWeek = async () => {
       try {
         const res = await axiosInstance.get("/performance/latest-week/");
-        const { year, week } = res.data;
+        let { year, week } = res.data;
 
-        const formattedWeek = `${year}-W${String(week).padStart(2, "0")}`;
+        // Performance is filled for previous week
+        let latestWeek = week - 1;
+        let latestYear = year;
+
+        // Handle edge case: Week 1 → go to last week of previous year
+        if (latestWeek === 0) {
+          latestYear = year - 1;
+          latestWeek = 52;
+        }
+
+        const formattedWeek = `${latestYear}-W${String(latestWeek).padStart(2, "0")}`;
         setSelectedWeek(formattedWeek);
+
       } catch (error) {
         console.error("Error fetching latest week:", error);
       }
     };
 
-    if (!evaluationId) {
-      fetchLatestWeek();
-    }
+      if (!evaluationId) {
+        fetchLatestWeek();
+      }
+    }, [evaluationId]);
+
+  useEffect(() => {
+    const fetchPerformanceList = async () => {
+      try {
+        const res = await axiosInstance.get("/performance/evaluations/");
+        setPerformanceList(res.data || []);
+      } catch (error) {
+        console.error("Error fetching performance list:", error);
+      }
+    };
+
+    fetchPerformanceList();
   }, []);
 
   const today = new Date();
@@ -123,10 +148,27 @@ const PerformanceMetrics = () => {
 
 
   useEffect(() => {
+    if (location.state?.forceLatestWeek) {
+      // Always load latest week for Add Performance
+      const fetchLatestWeek = async () => {
+        try {
+          const res = await axiosInstance.get("/performance/latest-week/");
+          const { year, week } = res.data;
+          const formattedWeek = `${year}-W${String(week).padStart(2, "0")}`;
+          setSelectedWeek(formattedWeek);
+        } catch (error) {
+          console.error("Error fetching latest week:", error);
+        }
+      };
+      fetchLatestWeek();
+      return;
+    }
+
     if (navigatedWeek) {
       setSelectedWeek(navigatedWeek);
     }
-  }, [navigatedWeek]);
+  }, [navigatedWeek, location.state]);
+
 
   //Reset duplicate error when employee or week changes
   useEffect(() => {
@@ -150,7 +192,7 @@ const PerformanceMetrics = () => {
             return;
           }
 
-          const res = await axiosInstance.get(`performance/evaluations/${evalId}/`);
+          const res = await axiosInstance.get(`/performance/evaluations/${evalId}/`);
 
 
           const evalData = res.data;
@@ -210,7 +252,7 @@ const PerformanceMetrics = () => {
     };
 
     loadEmployeeEvaluation();
-  }, [employee]);
+  }, [employee, location.state?.evaluation_id]);
 
   const handleSearch = async () => {
     if (!employeeId) {
@@ -500,7 +542,7 @@ const PerformanceMetrics = () => {
     const { year, week } = parseWeek(selectedWeek);
 
     const payload = {
-      employee_emp_id: employee?.emp_id || employeeId,
+      employee_emp_id: Number(employeeId),
       evaluation_type: "Manager",
       year: year,
       week: week,
