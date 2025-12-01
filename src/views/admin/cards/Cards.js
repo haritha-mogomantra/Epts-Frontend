@@ -11,12 +11,9 @@ const LoginDetails = () => {
   const [alert, setAlert] = useState({ show: false, message: "", type: "" });
   const [loading, setLoading] = useState(false);
   const [regenLoading, setRegenLoading] = useState(null); // ✅ track per-row regen loading
-  const [pagination, setPagination] = useState({
-    next: null,
-    previous: null,
-    currentPage: 1,
-    totalCount: 0,
-  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [entries, setEntries] = useState(10);
+  const [totalRecords, setTotalRecords] = useState(0);
   const [allEmployees, setAllEmployees] = useState([]);
   const [menuLoading, setMenuLoading] = useState(false);
 
@@ -47,13 +44,12 @@ const LoginDetails = () => {
   // ==================================================
   // FETCH EMPLOYEES — Use backend temp_password only
   // ==================================================
-  const fetchEmployees = async (url = API_URL) => {
+  const fetchEmployees = async (page = 1, pageSize) => {
     setLoading(true);
-    try {
-      const res = await fetch(url);
-      const data = await res.json();
 
-      if (!res.ok) throw new Error(data?.detail || "Failed to fetch employees");
+    try {
+      const res = await fetch(`${API_URL}?page=${page}&page_size=${pageSize}`);
+      const data = await res.json();
 
       const employeesList = (data.results || []).map((emp) => ({
         ...emp,
@@ -61,30 +57,13 @@ const LoginDetails = () => {
       }));
 
       setEmployees(employeesList);
-      setPagination({
-        next: data.next,
-        previous: data.previous,
-        totalCount: data.count,
-        currentPage: getPageNumberFromUrl(url) || 1,
-      });
+      setTotalRecords(data.count || 0);
 
-      // Save current page URL to localStorage
-      localStorage.setItem("loginDetailsPageUrl", url);
     } catch (error) {
       console.error("Error fetching employees:", error);
-      setAlert({
-        show: true,
-        type: "danger",
-        message: "Error fetching employee data.",
-      });
     } finally {
       setLoading(false);
     }
-  };
-
-  const getPageNumberFromUrl = (url) => {
-    const match = url.match(/page=(\d+)/);
-    return match ? parseInt(match[1]) : 1;
   };
 
   useEffect(() => {
@@ -92,26 +71,27 @@ const LoginDetails = () => {
       try {
         setMenuLoading(true);
 
-      const savedUrl = localStorage.getItem("loginDetailsPageUrl");
+        const all = await fetchAllEmployees();
+        setAllEmployees(all);
 
-      if (savedUrl) {
-        await fetchEmployees(savedUrl);
-      } else {
-        await fetchEmployees(API_URL);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setMenuLoading(false);
       }
-
-      const all = await fetchAllEmployees();
-      setAllEmployees(all);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setMenuLoading(false);
-    }
     };
 
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (search.trim() === "") {
+      console.log('Fetching with:', currentPage, entries);
+      fetchEmployees(currentPage, entries);
+    }
+  }, [entries, currentPage, search]);
+
+  
   // ==================================================
   // PASSWORD REGENERATION (Backend Only)
   // ==================================================
@@ -175,7 +155,7 @@ const LoginDetails = () => {
     setSortConfig({ key, direction });
   };
 
-  const sourceData = allEmployees.length > 0 ? allEmployees : employees;
+  const sourceData = search.trim() ? allEmployees : employees;
 
   const filteredData =
     search.trim() === ""
@@ -203,15 +183,21 @@ const LoginDetails = () => {
     return 0;
   });
 
+  const displayData = sortedData;
+
   // ==================================================
   // PAGINATION
   // ==================================================
-  const handleNextPage = () => pagination.next && fetchEmployees(pagination.next);
-  const handlePreviousPage = () =>
-    pagination.previous && fetchEmployees(pagination.previous);
-  const handlePageClick = (pageNum) => {
-    const newUrl = `${API_URL}?page=${pageNum}`;
-    fetchEmployees(newUrl);
+  const handlePageClick = (page) => {
+    setCurrentPage(page);
+  };
+
+  const handleNextPage = () => {
+    handlePageClick(currentPage + 1);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) handlePageClick(currentPage - 1);
   };
 
   // Always-visible sort icons
@@ -259,11 +245,15 @@ const LoginDetails = () => {
             justifyContent: "center",
             alignItems: "center",
             zIndex: 99999,
-            pointerEvents: "auto" // prevents clicks
+            pointerEvents: "auto"
           }}
         >
           <div className="text-center">
-            <div className="spinner-border text-primary" style={{ width: "4rem", height: "4rem" }} role="status"></div>
+            <div
+              className="spinner-border text-primary"
+              style={{ width: "4rem", height: "4rem" }}
+              role="status"
+            ></div>
             <div className="mt-2 fw-semibold text-primary">Loading…</div>
           </div>
         </div>
@@ -289,39 +279,73 @@ const LoginDetails = () => {
             </div>
           )}
 
-          {/* Search Bar */}
-          <div className="mb-3">
-            <input
-              type="text"
-              className="form-control w-25"
-              placeholder="Search Employee..."
-              value={search}
-              onChange={(e) => {
-                const value = e.target.value;
-                setSearch(value);
+          {/* DATATABLES TOOLBAR */}
+          <div className="dt-toolbar">
+            <div className="dt-toolbar-inner">
 
-                setLoading(true);
-                setTimeout(() => setLoading(false), 400);
+              <div className="dt-left">
+                <div>
+                  Show{" "}
+                  <select
+                    value={entries}
+                    onChange={(e) => {
+                      setEntries(Number(e.target.value));
+                      setCurrentPage(1);   // ✅ FORCE RESET PAGE
+                    }}
+                    className="form-select d-inline-block mx-2"
+                    style={{ width: "60px", paddingRight: "28px" }}
+                  >
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                  </select>
+                  entries
+                </div>
 
-                // Load all employees only once for global search
-                if (value.trim() !== "" && allEmployees.length === 0) {
-                  fetchAllEmployees().then((all) => setAllEmployees(all));
-                }
-              }}
-            />
+                <div className="search-input-wrapper">
+                  <input
+                    type="text"
+                    placeholder="Search login details..."
+                    value={search}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setSearch(value);
+
+                      if (value.trim() !== "" && allEmployees.length === 0) {
+                        fetchAllEmployees().then((all) => setAllEmployees(all));
+                      }
+                    }}
+                  />
+                </div>
+
+              </div>
+
+              <div className="dt-right"></div>
+
+            </div>
           </div>
 
           {/* Table */}
-          <div className="table-responsive">
-            <table className="table table-bordered table-hover align-middle text-center">
-              <thead className="table-light">
+          <div className="dt-wrapper">
+            <div className="table-responsive">
+              <table
+                className="table dt-table text-center align-middle"
+                style={{ whiteSpace: "nowrap", tableLayout: "auto" }}
+              >
+              <thead className="custom-table-header">
                 <tr>
                   <th onClick={() => handleSort("emp_id")} style={{ cursor: "pointer" }}>
-                    Emp ID <SortIcon column="emp_id" />
+                    <span className="th-label">
+                      Emp ID
+                      <SortIcon column="emp_id" />
+                    </span>
                   </th>
 
                   <th onClick={() => handleSort("full_name")} style={{ cursor: "pointer" }}>
-                    Name <SortIcon column="full_name" />
+                    <span className="th-label">
+                      Name
+                      <SortIcon column="full_name" />
+                    </span>
                   </th>
 
                   <th>Username</th>
@@ -343,7 +367,7 @@ const LoginDetails = () => {
                   </>
                 ) : sortedData.length > 0 ? (
 
-                  sortedData.map((emp) => (
+                  displayData.map((emp) => (
                     <tr key={emp.emp_id}>
                       <td>{emp.emp_id}</td>
                       <td>{emp.full_name || "-"}</td>
@@ -386,32 +410,41 @@ const LoginDetails = () => {
               </tbody>
             </table>
           </div>
+        </div>
 
           {/* RECORD COUNT + PAGINATION */}
           <div className="d-flex justify-content-between align-items-center mt-3">
 
-            {/* LEFT — Record Count */}
-            <div className="text-muted">
-              Showing {(pagination.currentPage - 1) * 10 + 1} –{" "}
-              {Math.min(pagination.currentPage * 10, pagination.totalCount)} of{" "}
-              {pagination.totalCount} records
+            <div className="text-muted" style={{ fontWeight: "normal", margin: 0 }}>
+              Showing{" "}
+              {totalRecords === 0 ? 0 : (currentPage - 1) * entries + 1}
+              {" "}to{" "}
+              {Math.min(currentPage * entries, totalRecords)}
+              {" "}of {totalRecords} records
             </div>
 
-            {/* RIGHT — Pagination */}
             <nav>
               <ul className="pagination mb-0">
-                <li className={`page-item ${!pagination.previous ? "disabled" : ""}`}>
-                  <button className="page-link" onClick={handlePreviousPage}>Previous</button>
+
+                <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                  <button className="page-link" onClick={() => handlePageClick(1)}>«</button>
+                </li>
+
+                <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                  <button className="page-link" onClick={handlePreviousPage}>‹</button>
                 </li>
 
                 {(() => {
-                  const pageSize = 10;
-                  const totalPages = Math.ceil(pagination.totalCount / pageSize);
-                  const current = pagination.currentPage;
+                  const pageSize = entries;
+                  const totalPages = Math.ceil(totalRecords / entries);
+                  const current = currentPage;
+
                   const start = Math.max(1, current - 2);
                   const end = Math.min(totalPages, start + 4);
+
                   const pages = [];
                   for (let i = start; i <= end; i++) pages.push(i);
+
                   return pages.map((num) => (
                     <li key={num} className={`page-item ${num === current ? "active" : ""}`}>
                       <button className="page-link" onClick={() => handlePageClick(num)}>
@@ -421,9 +454,21 @@ const LoginDetails = () => {
                   ));
                 })()}
 
-                <li className={`page-item ${!pagination.next ? "disabled" : ""}`}>
-                  <button className="page-link" onClick={handleNextPage}>Next</button>
+                <li className={`page-item ${currentPage * entries >= totalRecords ? "disabled" : ""}`}>
+                  <button className="page-link" onClick={handleNextPage}>›</button>
                 </li>
+
+                <li className={`page-item ${currentPage * entries >= totalRecords ? "disabled" : ""}`}>
+                  <button className="page-link"
+                    onClick={() => {
+                      const totalPages = Math.ceil(totalRecords / entries);
+                      handlePageClick(totalPages);
+                    }}
+                  >
+                    »
+                  </button>
+                </li>
+
               </ul>
             </nav>
           </div>

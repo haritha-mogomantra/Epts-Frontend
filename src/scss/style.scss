@@ -80,19 +80,13 @@ body {
 }
 
 /* ================= DATATABLES CLASSIC LOOK ================= */
-
-/* WRAPPER */
 .dt-wrapper {
   background: #ffffff;
   border: 1px solid #d0d0d0;
   border-radius: 6px;
   padding: 0;
 }
-
-
 /* ================= DATATABLE TOOLBAR ================= */
-
-
 .dt-toolbar-fixed {
   display: flex;
   align-items: center;
@@ -101,8 +95,6 @@ body {
   flex-wrap: nowrap;          /* ✅ PREVENT VERTICAL SHIFT */
   min-height: 56px;           /* ✅ LOCK SAME HEIGHT */
 }
-
-
 /* OUTER TOOLBAR */
 .dt-toolbar {
   background: #f8f9fa;
@@ -115,8 +107,6 @@ body {
 .card-body {
   padding: 16px 20px;
 }
-
-
 .dt-toolbar-inner {
   display: grid;
   grid-template-columns: 1fr auto; /* LEFT stretch, RIGHT fixed */
@@ -135,8 +125,6 @@ body {
   min-width: 160px;
   box-sizing: border-box;
 }
-
-
 /* LEFT SIDE */
 .dt-left {
   display: flex;
@@ -152,8 +140,6 @@ body {
   gap: 10px;
   white-space: nowrap;
 }
-
-
 
 /* Prevent result text from pushing layout */
 .search-info {
@@ -175,7 +161,6 @@ body {
   position: relative;
   width: 220px;
 }
-
 
 .search-input-wrapper input {
   width: 100%;
@@ -263,6 +248,22 @@ body {
   border-collapse: collapse;
 }
 
+/* FORCE LEFT ALIGN WITH TIGHT SPACING */
+.dt-table th,
+.dt-table td {
+  text-align: left !important;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+  vertical-align: middle !important;
+}
+
+/* Ensure label + sort icon align perfectly */
+.dt-table .th-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .dt-table thead {
   background: #f5f5f5;
   border-bottom: 1px solid #a9a9a9;
@@ -282,6 +283,15 @@ body {
   border-right: 1px solid #eee;
 }
 
+/* CENTER "NO PERFORMANCE RECORDS FOUND" ROW ONLY */
+.dt-table .empty-state-row td {
+  text-align: center !important;
+  padding-top: 40px !important;
+  padding-bottom: 40px !important;
+  font-size: 16px;
+  color: #777;
+}
+
 .dt-table tbody tr:nth-child(even) {
   background: #fafafa;
 }
@@ -290,14 +300,7 @@ body {
   background: #f1f1f1;
 }
 
-/* SORT ICON */
-.sort-wrapper {
-  display: inline-flex;
-  flex-direction: column;
-  margin-left: 6px;
-  font-size: 10px;
-  color: #aaa;
-}
+
 
 /* PAGINATION FOOTER */
 .dt-pagination {
@@ -411,4 +414,64 @@ body {
   background: #eff6ff !important;
   border-left: 5px solid #3b82f6 !important;
   color: #1e3a8a !important;
+}
+
+/* ================= NEW SORT ICON STYLE (GLOBAL) ================= */
+
+.sort-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+}
+
+/* 3 Horizontal bars */
+.sort-bars {
+  position: relative;
+  width: 18px;
+  height: 12px;
+}
+
+.sort-bars::before,
+.sort-bars::after {
+  content: '';
+  position: absolute;
+  height: 2px;
+  background: #aaa;
+  border-radius: 2px;
+  left: 0;
+}
+
+.sort-bars span {
+  position: absolute;
+  height: 2px;
+  background: #aaa;
+  border-radius: 2px;
+  left: 0;
+}
+
+/* Default */
+.sort-bars.default::before { top: 0; width: 40%; }
+.sort-bars.default span { top: 5px; width: 70%; }
+.sort-bars.default::after { bottom: 0; width: 100%; }
+
+/* Ascending */
+.sort-bars.asc::before { top: 0; width: 40%; }
+.sort-bars.asc span { top: 5px; width: 70%; }
+.sort-bars.asc::after { bottom: 0; width: 100%; }
+
+/* Descending */
+.sort-bars.desc::before { top: 0; width: 100%; }
+.sort-bars.desc span { top: 5px; width: 70%; }
+.sort-bars.desc::after { bottom: 0; width: 40%; }
+
+/* Arrow styles */
+.sort-arrow {
+  font-size: 14px;
+  font-weight: bold;
+  color: #888;
+}
+
+.sort-arrow.active {
+  color: #0d6efd;
 }

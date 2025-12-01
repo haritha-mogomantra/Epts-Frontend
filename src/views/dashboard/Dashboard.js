@@ -371,28 +371,35 @@ function PerformanceDashboard() {
     <div className="row align-items-center">
       
       {/* Left: Title + subtitle */}
-      <div className="col-12 col-md-8 mb-3 mb-md-0">
-        <h5 className="mb-0 fw-semibold text-dark">All Employee Performance</h5>
-        <small className="text-muted">Weekly ranking overview of all employees</small>
-      </div>
+     <div className="card shadow-sm border-1 rounded p-2">
+  <div className="d-flex justify-content-between align-items-center">
 
-      {/* Right: Department select (keeps minWidth you used) */}
-      <div className="col-12 col-md-4">
-        <label className="form-label fw-semibold mb-1">Department</label>
-        <select
-          className="form-select"
-          value={selectedDept}
-          onChange={(e) => setSelectedDept(e.target.value)}
-          style={{ minWidth: "220px" }}
-        >
-          <option value="all">All Departments</option>
-          {departments.map(dept => (
-            <option key={dept.id} value={dept.name}>
-              {dept.name}
-            </option>
-          ))}
-        </select>
-      </div>
+    <div>
+      <h5 className="mb-0 fw-semibold text-dark">All Employee Performance</h5>
+      <small className="text-muted">Weekly ranking overview of all employees</small>
+    </div>
+
+    <div className="col-12 col-md-4">
+      <select
+        className="form-select fw-semibold"
+        value={selectedDept}
+        onChange={(e) => setSelectedDept(e.target.value)}
+        style={{ minWidth: "220px" }}
+      >
+        <option value="all">All Departments</option>
+        {departments.map(dept => (
+          <option key={dept.id} value={dept.name}>{dept.name}</option>
+        ))}
+      </select>
+    </div>
+
+  </div>
+</div>
+
+      
+
+      
+     
 
     </div>
   </div>
