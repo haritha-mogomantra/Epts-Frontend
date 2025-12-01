@@ -6,28 +6,28 @@ const Typography = React.lazy(() => import('./views/theme/typography/Typography'
 
 
 // Base
-const employeedetails = React.lazy(() => import('./views/base/employeedetails/employeedetails'))
-const employeeperformance = React.lazy(() => import('./views/base/employeeperformance/EmployeePerformance'))
-const Cards = React.lazy(() => import('./views/base/cards/Cards'))
-const Carousels = React.lazy(() => import('./views/base/carousels/Carousels'))
-const Collapses = React.lazy(() => import('./views/base/collapses/Collapses'))
-const ListGroups = React.lazy(() => import('./views/base/list-groups/ListGroups'))
-const Navs = React.lazy(() => import('./views/base/navs/Navs'))
-const Paginations = React.lazy(() => import('./views/base/paginations/Paginations'))
+const employeedetails = React.lazy(() => import('./views/admin/employeedetails/employeedetails'))
+const employeeperformance = React.lazy(() => import('./views/admin/employeeperformance/EmployeePerformance'))
+const Cards = React.lazy(() => import('./views/admin/cards/Cards'))
+const Carousels = React.lazy(() => import('./views/admin/carousels/Carousels'))
+const Collapses = React.lazy(() => import('./views/admin/collapses/Collapses'))
+const ListGroups = React.lazy(() => import('./views/admin/list-groups/ListGroups'))
+const Navs = React.lazy(() => import('./views/admin/navs/Navs'))
+const Paginations = React.lazy(() => import('./views/admin/paginations/Paginations'))
 
 
 
 
-const Tabs = React.lazy(() => import('./views/base/tabs/Tabs'))
+const Tabs = React.lazy(() => import('./views/admin/tabs/Tabs'))
 
-const Tooltips = React.lazy(() => import('./views/base/tooltips/Tooltips'))
+const Tooltips = React.lazy(() => import('./views/admin/tooltips/Tooltips'))
 
 //new
 const Performance = React.lazy(()=>import('./views/performance/performance'))
 const AdminProfile = React.lazy(() => import('./views/pages/adminprofile/AdminProfile'))
 const EmployeeProfile = React.lazy(() => import('./views/pages/employeeprofile/EmployeeProfile'))
 const ChangePassword = React.lazy(
-  () => import("./views/base/list-groups/ListGroups")
+  () => import("./views/admin/list-groups/ListGroups")
 );
 
 const Profile = React.lazy(
@@ -71,15 +71,15 @@ const routes = [
   { path: '/theme', name: 'Theme', element: PerformanceMetrics, exact: true },
   { path: '/theme/performancemetrics', name: 'PerformanceMetrics', element: PerformanceMetrics },
   { path: '/theme/typography', name: 'Typography', element: Typography },
-  { path: '/base', name: 'Base', element: Cards, exact: true },
-  { path: '/base/employeedetails', name: 'employeedetails', element: employeedetails },
-  { path: '/base/employeeperformance', name: 'employeeperformance', element: employeeperformance },
-  { path: '/base/cards', name: 'Cards', element: Cards },
-  { path: '/base/carousels', name: 'Carousel', element: Carousels },
-  { path: '/base/collapses', name: 'Collapse', element: Collapses },
-  { path: '/base/list-groups', name: 'List Groups', element: ListGroups },
-  { path: '/base/navs', name: 'Navs', element: Navs },
-  { path: '/base/paginations', name: 'Paginations', element: Paginations },
+  { path: '/admin', name: 'admin', element: Cards, exact: true },
+  { path: '/admin/employeedetails', name: 'employeedetails', element: employeedetails },
+  { path: '/admin/employeeperformance', name: 'employeeperformance', element: employeeperformance },
+  { path: '/admin/cards', name: 'Cards', element: Cards },
+  { path: '/admin/carousels', name: 'Carousel', element: Carousels },
+  { path: '/admin/collapses', name: 'Collapse', element: Collapses },
+  { path: '/admin/list-groups', name: 'List Groups', element: ListGroups },
+  { path: '/admin/navs', name: 'Navs', element: Navs },
+  { path: '/admin/paginations', name: 'Paginations', element: Paginations },
   
   {path : '/pages/adminprofile', name: 'AdminProfile' , element:AdminProfile},
   {path: '/pages/employeeprofile', name:'EmployeeProfile', element:EmployeeProfile},
@@ -92,9 +92,9 @@ const routes = [
  
   
   
-  { path: '/base/tabs', name: 'Tabs', element: Tabs },
+  { path: '/admin/tabs', name: 'Tabs', element: Tabs },
   
-  { path: '/base/tooltips', name: 'Tooltips', element: Tooltips },
+  { path: '/admin/tooltips', name: 'Tooltips', element: Tooltips },
   { path: '/buttons', name: 'Buttons', element: Buttons, exact: true },
   { path: '/buttons/buttons', name: 'Buttons', element: Buttons },
   { path: '/buttons/dropdowns', name: 'Dropdowns', element: Dropdowns },

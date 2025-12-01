@@ -7,22 +7,30 @@ import axiosInstance from "../../../utils/axiosInstance";
 function DynamicPerformanceReport() {
   const [reportType, setReportType] = useState("weekly");
   const [selectedOption, setSelectedOption] = useState("");
+
   const [selectedWeek2, setSelectedWeek2] = useState("");
+  const [maxSelectableWeek, setMaxSelectableWeek] = useState("");
+  const [initialWeek, setInitialWeek] = useState("");
+  const [isWeekChanged, setIsWeekChanged] = useState(false);
+
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
+  const [hasManagerInteracted, setHasManagerInteracted] = useState(false);
+  const [hasDepartmentInteracted, setHasDepartmentInteracted] = useState(false);
+
   const [filteredData, setFilteredData] = useState([]);
   const [isPrinting, setIsPrinting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [initialLoadDone, setInitialLoadDone] = useState(false);
+
   // PAGINATION STATE
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const [sortConfig, setSortConfig] = useState({
     key: null,
     direction: "asc",
   });
-
-  const totalPages = Math.ceil(filteredData.length / pageSize);
 
  
   const reportRef = useRef(null);
@@ -34,13 +42,12 @@ function DynamicPerformanceReport() {
   };
 
   const getCurrentWeek = () => {
-  const now = new Date();
-  const oneJan = new Date(now.getFullYear(), 0, 1);
-  const numberOfDays = Math.floor((now - oneJan) / (24 * 60 * 60 * 1000));
-  const week = Math.ceil((now.getDay() + 1 + numberOfDays) / 7);
-  return `${now.getFullYear()}-W${String(week).padStart(2, "0")}`;
-};
-
+    const today = new Date();
+    const onejan = new Date(today.getFullYear(), 0, 1);
+    const numberOfDays = Math.floor((today - onejan) / (24 * 60 * 60 * 1000));
+    const week = Math.ceil((today.getDay() + 1 + numberOfDays) / 7);
+    return `${today.getFullYear()}-W${String(week).padStart(2, "0")}`;
+  };
 
 
   useEffect(() => {
@@ -50,29 +57,39 @@ function DynamicPerformanceReport() {
       setLoading(true);
 
       try {
-        const instantWeek = getCurrentWeek();
-        let finalWeek = instantWeek;
+        const storedWeek = localStorage.getItem("selectedWeek");
 
-        // Step 1: show immediate week in picker
-        setSelectedWeek2(instantWeek);
+        if (storedWeek) {
+          setSelectedWeek2(storedWeek);
+          setInitialWeek(storedWeek);
 
-        // Step 2: fetch latest available week from backend
-        const res = await axiosInstance.get("/performance/latest-week/");
+          setHasUserInteracted(true);
+          setIsWeekChanged(true);
+
+          const { year, week } = parseWeek(storedWeek);
+          await fetchReport("weekly", "", "", week, year);
+          setLoading(false);
+          return;
+        }
+        const res = await axiosInstance.get("/reports/latest-week/");
 
         if (res?.data?.week && res?.data?.year) {
-          finalWeek = `${res.data.year}-W${String(res.data.week).padStart(2, "0")}`;
-          setSelectedWeek2(finalWeek);
+          const backendWeek = `${res.data.year}-W${String(res.data.week).padStart(2, "0")}`;
+          setSelectedWeek2(backendWeek);
+
+          setMaxSelectableWeek(getCurrentWeek());
+
+          setInitialWeek(backendWeek);
+          setIsWeekChanged(false);
+
+          const { year, week } = parseWeek(backendWeek);
+          await fetchReport("weekly", "", "", week, year);
         }
 
-        // Step 3: Auto-load weekly report on first load ONLY
-        const { year, week } = parseWeek(finalWeek);
-        await fetchReport("weekly", "", "", week, year);
-
-        setInitialLoadDone(true);
       } catch (e) {
-        console.error(e);
+        console.error("Failed to load latest week:", e);
       } finally {
-        if (isMounted) setLoading(false);
+        setLoading(false);
       }
     };
 
@@ -80,23 +97,26 @@ function DynamicPerformanceReport() {
 
     return () => {
       isMounted = false;
+
+      // CLEAR WEEK ONLY WHEN USER LEAVES REPORTS PAGE
+      localStorage.removeItem("selectedWeek");
     };
   }, []);
 
-    // Auto-load manager list when switching to Manager report
     useEffect(() => {
       if (reportType === "manager") {
         fetchManagers();
+          setSelectedOption("ALL_MGR");
       }
     }, [reportType]);
+
 
     useEffect(() => {
       if (reportType === "department") {
         fetchDepartments();
+          setSelectedOption("ALL_DEPT");
       }
     }, [reportType]);
-
-
 
 
   const parseWeek = (weekValue) => {
@@ -114,12 +134,18 @@ function DynamicPerformanceReport() {
       setError("");
  
       const params = {};
-      if (manager && manager !== "ALL_MGR") {
-        params.manager = manager;
+      // Manager filter
+      if (manager === "ALL_MGR") {
+          params.manager = "";             // send empty → backend returns all managers
+      } else if (manager) {
+          params.manager = manager;        // specific manager
       }
 
-      if (department && department !== "ALL_DEPT") {
-        params.department = department;
+      // Department filter
+      if (department === "ALL_DEPT") {
+          params.department = "";          // send empty → backend returns all departments
+      } else if (department) {
+          params.department = department;  // specific department
       }
 
       if (week) params.week = week;
@@ -211,12 +237,20 @@ function DynamicPerformanceReport() {
  
     const { year, week } = parseWeek(selectedWeek2);
 
-    if (reportType === "manager")
-      fetchReport("manager", selectedOption, "", week, year);
-    else if (reportType === "department")
-      fetchReport("department", "", selectedOption, week, year);
-    else
-      fetchReport("weekly", "", "", week, year);
+    if (!week || !year) {
+      alert("Invalid week selection");
+      return;
+    }
+
+    if (reportType === "manager") {
+      fetchReport("manager", selectedOption, null, week, year);
+  }
+  else if (reportType === "department") {
+      fetchReport("department", null, selectedOption, week, year);
+  }
+  else {
+      fetchReport("weekly", null, null, week, year);
+  }
   };
 
 
@@ -229,123 +263,17 @@ function DynamicPerformanceReport() {
     XLSX.utils.book_append_sheet(wb, ws, "Report");
     XLSX.writeFile(wb, filename);
   };
-const handlePrint = () => {
-  if (!reportRef.current) return alert("Nothing to print");
-
-  const printContent = reportRef.current.innerHTML;
-
-  const now = new Date();
-  const dateTime = now.toLocaleString();
-
-  const title =
-    document.querySelector(".fw-bold.mb-0")?.innerText ||
-    "Employee Performance Report";
-
-  const printWindow = window.open("", "_blank", "width=900,height=700");
-
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Performance Report</title>
-
-        <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
-
-        <style>
-          body {
-            padding: 30px;
-            font-family: Arial, sans-serif;
-          }
-
-          /* Header */
-          .print-header {
-            text-align: center;
-            margin-bottom: 30px;
-          }
-          .print-header h2 {
-            margin: 0;
-            font-weight: 700;
-          }
-
-          /* Centered Report Title */
-          .report-title {
-            text-align: center;
-            font-size: 20px;
-            font-weight: 700;
-            margin-bottom: 20px;
-            text-transform: uppercase;
-          }
-
-          /* Table */
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-          }
-          th, td {
-            padding: 8px 12px;
-            border: 1px solid #ccc !important;
-          }
-          th {
-            background: #e8f4ff !important;
-            font-weight: 600;
-          }
-
-          /* Hide pagination & extra UI in print */
-          @media print {
-            .pagination,
-            .no-print,
-            .table-pagination,
-            nav,
-            .d-flex.justify-content-between.align-items-center.mt-3 {
-              display: none !important;
-            }
-          }
-
-          /* Footer */
-          .print-footer {
-            position: fixed;
-            bottom: 10px;
-            width: 100%;
-            text-align: center;
-            font-size: 12px;
-            color: #555;
-          }
-        </style>
-      </head>
-
-      <body>
-
-        <div class="print-header">
-          
-          <p><strong>Employee Performance Report</strong></p>
-          <p>Date & Time: ${dateTime}</p>
-        </div>
-
-        <!-- Centered Title -->
-        <div class="report-title">${title}</div>
-
-        ${printContent}
-
-        <div class="print-footer">
-          © ${new Date().getFullYear()} EGROVITY — Auto-Generated by Performance Tracking System
-        </div>
-
-      </body>
-    </html>
-  `);
-
-  printWindow.document.close();
-
-  printWindow.onload = () => {
-    printWindow.focus();
+ 
+  const handlePrint = async () => {
+    if (!reportRef.current) return alert("Nothing to print");
+    setIsPrinting(true);
+    const printWindow = window.open("", "_blank", "noopener,noreferrer");
+    const content = reportRef.current.innerHTML;
+    printWindow.document.write(`<html><body>${content}</body></html>`);
+    printWindow.document.close();
     printWindow.print();
-    printWindow.close();
+    setIsPrinting(false);
   };
-};
-
-
-
  
   const reportTitleMap = {
     weekly: "Weekly Report",
@@ -377,58 +305,62 @@ const handlePrint = () => {
   const [managers, setManagers] = useState([]);
   const [departments, setDepartments] = useState([]);
 
-  // Manager dropdown list
   const fetchManagers = async () => {
     try {
-      const res = await axiosInstance.get("/employee/employees/managers/");
-      const data = res.data.results || res.data;
+      const res = await axiosInstance.get("employee/employees/managers/");
+      
+      let list = [];
 
-      setManagers(
-        data.map((m) => ({
-          emp_id: m.emp_id || m.user?.emp_id || "",
-          full_name:
-            m.full_name ||
-            `${m.user?.first_name || ""} ${m.user?.last_name || ""}`.trim(),
-        }))
-      );
+      if (Array.isArray(res.data.results)) {
+        list = res.data.results;
+      } else if (Array.isArray(res.data)) {
+        list = res.data;
+      } else {
+        console.warn("Managers API returned unexpected format:", res.data);
+      }
+
+      const mappedManagers = list.map((m) => ({
+        emp_id: m.emp_id || m.user?.emp_id || "",
+        full_name:
+          m.full_name ||
+          `${m.user?.first_name || ""} ${m.user?.last_name || ""}`.trim(),
+      }));
+
+      setManagers(mappedManagers);
     } catch (error) {
-      console.error("Failed to load managers:", error);
+      console.error("❌ Failed to load managers:", error);
     }
   };
 
   const fetchDepartments = async () => {
     try {
-      const res = await axiosInstance.get("/employee/departments/");
-      console.log("DEPARTMENT API RESPONSE:", res.data);
-
+      const res = await axiosInstance.get("employee/departments/");
       let list = [];
 
-      // CASE 1: Backend sends { results: [...] }
       if (Array.isArray(res.data.results)) {
         list = res.data.results;
       }
-      // CASE 2: Backend sends { departments: [...] }
+
       else if (Array.isArray(res.data.departments)) {
         list = res.data.departments;
       }
-      // CASE 3: Backend sends a plain array: [ ... ]
+
       else if (Array.isArray(res.data)) {
         list = res.data;
       }
-      // CASE 4: Backend sends { data: [...] }
+
       else if (Array.isArray(res.data.data)) {
         list = res.data.data;
       }
 
-      setDepartments(
-        list.map((d) => ({
-          code: d.code || d.id || d.department_code,
-          name: d.name || d.title || d.department_name,
-        }))
-      );
+      const mappedDepartments = list.map((d) => ({
+        code: d.code || d.id || d.department_code || d.pk,
+        name: d.name || d.title || d.department_name || d.department,
+      }));
+
+      setDepartments(mappedDepartments);
 
     } catch (error) {
-      console.error("Failed to load departments:", error);
     }
   };
 
@@ -445,7 +377,11 @@ const handlePrint = () => {
   };
 
   const sortedData = React.useMemo(() => {
-    let sorted = [...filteredData];
+    let sorted = filteredData.filter(item =>
+      Object.values(item).some(val =>
+        String(val).toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    );
 
     if (!sortConfig.key) return sorted;
 
@@ -473,7 +409,9 @@ const handlePrint = () => {
     });
 
     return sorted;
-  }, [filteredData, sortConfig]);
+  }, [filteredData, sortConfig, searchTerm]);
+
+  const totalPages = Math.ceil(sortedData.length / pageSize);
 
   const paginatedData = sortedData.slice(
     (currentPage - 1) * pageSize,
@@ -493,14 +431,30 @@ const handlePrint = () => {
     }
   };
 
-  const sortIcon = (key) => {
-    if (sortConfig.key !== key)
-      return <i className="bi bi-arrow-down-up ms-1 text-muted"></i>;
+  const SortIcon = ({ column }) => {
+  const isActive = sortConfig.key === column;
+  const isAsc = sortConfig.direction === "asc";
 
-    return sortConfig.direction === "asc"
-      ? <i className="bi bi-caret-up-fill ms-1"></i>
-      : <i className="bi bi-caret-down-fill ms-1"></i>;
-  };
+  const barsClass = !isActive
+    ? "sort-bars default"
+    : isAsc
+    ? "sort-bars asc"
+    : "sort-bars desc";
+
+  return (
+    <span className="sort-wrapper">
+      <div className={barsClass}>
+        <span></span>
+      </div>
+
+      <i
+        className={`bi ${
+          !isActive ? "bi-arrow-down-up" : isAsc ? "bi-arrow-up" : "bi-arrow-down"
+        } sort-arrow ${isActive ? "active" : ""}`}
+      />
+    </span>
+  );
+};
 
 
   return (
@@ -514,7 +468,7 @@ const handlePrint = () => {
         {/* ---------------- FORM ---------------- */}
         <form onSubmit={handleSubmit} className="card shadow-sm border-0 p-3 mb-4">
           <div className="d-flex flex-wrap align-items-center gap-3">
-            <label className="fw-semibold me-2">Select Report Type:</label>
+            <label className="fw-semibold me-2">Report Type:</label>
 
             {["weekly", "manager", "department"].map((type) => (
               <div key={type} className="form-check form-check-inline">
@@ -525,9 +479,48 @@ const handlePrint = () => {
                   id={`type-${type}`}
                   value={type}
                   checked={reportType === type}
-                  onChange={(e) => {
-                    setReportType(e.target.value);
-                    setSelectedOption("");
+                  onChange={async (e) => {
+                    const type = e.target.value;
+                    setReportType(type);
+
+                    // Reset interaction states completely
+                    setHasUserInteracted(false);
+                    setHasManagerInteracted(false);
+                    setHasDepartmentInteracted(false);
+                    setIsWeekChanged(false);
+
+                    setMaxSelectableWeek(getCurrentWeek());
+
+                    try {
+                      const res = await axiosInstance.get("/reports/latest-week/");
+
+                      if (res?.data?.week && res?.data?.year) {
+                        const latestWeekValue = `${res.data.year}-W${String(res.data.week).padStart(2, "0")}`;
+                        const latestWeekNum = parseInt(res.data.week);
+                        const latestYearNum = parseInt(res.data.year);
+
+                        if (type === "manager") {
+                          setSelectedOption("ALL_MGR");
+                          setFilteredData([]);
+                          await fetchReport("manager", "", "", latestWeekNum, latestYearNum);
+                        }
+                        else if (type === "department") {
+                          setSelectedOption("ALL_DEPT");
+                          setFilteredData([]);
+                          await fetchReport("department", "", "", latestWeekNum, latestYearNum);
+                        }
+                        else {
+                          setSelectedOption("");
+                          setFilteredData([]);
+                          await fetchReport("weekly", "", "", latestWeekNum, latestYearNum);
+                        }
+
+                        // Update selected week WITHOUT marking user interaction
+                        setSelectedWeek2(latestWeekValue);
+                      }
+                    } catch (err) {
+                      console.error("Failed to fetch latest week:", err);
+                    }
                   }}
                 />
                 <label className="form-check-label text-capitalize">
@@ -539,58 +532,95 @@ const handlePrint = () => {
 
           <div className="row align-items-end mt-4">
             <div className="col-md-3">
-              <label className="form-label fw-semibold">Select Week:</label>
+              <label className="form-label fw-semibold">Week:</label>
               <input
                 type="week"
                 className="form-control"
                 value={selectedWeek2}
-                onChange={(e) => setSelectedWeek2(e.target.value)}
+                max={maxSelectableWeek}
+                onChange={(e) => {
+                  const value = e.target.value;
+
+                  setSelectedWeek2(value);
+                  localStorage.setItem("selectedWeek", value);
+
+                  setHasUserInteracted(true);
+                  setIsWeekChanged(true);
+
+                }}
               />
             </div>
 
             {(reportType === "manager" || reportType === "department") && (
               <div className="col-md-3">
                 <label className="form-label fw-semibold">
-                  {reportType === "manager" ? "Select Manager:" : "Select Department:"}
+                  {reportType === "manager" ? "Manager:" : "Department:"}
                 </label>
 
                 {reportType === "manager" ? (
                   <select
                     className="form-select"
                     value={selectedOption}
-                    onChange={(e) => setSelectedOption(e.target.value)}
-                    onClick={fetchManagers}
-                  >
-                    <option value="">Select Manager</option>
-                    <option value="ALL_MGR">All Managers</option>
+                    onChange={(e) => {
+                      setSelectedOption(e.target.value);
 
-                    {managers.map((m) => (
-                      <option key={m.emp_id} value={m.emp_id}>
-                        {m.full_name} ({m.emp_id})
-                      </option>
-                    ))}
+                      if (e.target.value !== "ALL_MGR") {
+                        setHasManagerInteracted(true);
+                      }
+                    }}
+                  >
+                    <option value="ALL_MGR">All Managers</option>
+                    
+                    {managers.length === 0 ? (
+                      <option value="" disabled>Loading managers...</option>
+                    ) : (
+                      managers.map((m) => (
+                        <option key={m.emp_id} value={m.emp_id}>
+                          {m.full_name} ({m.emp_id})
+                        </option>
+                      ))
+                    )}
                   </select>
                 ) : (
                   <select
                     className="form-select"
                     value={selectedOption}
-                    onChange={(e) => setSelectedOption(e.target.value)}
-                  >
-                    <option value="">Select Department</option>
-                    <option value="ALL_DEPT">All Departments</option>
+                    onChange={(e) => {
+                      setSelectedOption(e.target.value);
 
-                    {departments.map((d) => (
-                      <option key={d.code} value={d.code}>
-                        {d.name} ({d.code})
-                      </option>
-                    ))}
+                      if (e.target.value !== "ALL_DEPT") {
+                        setHasDepartmentInteracted(true);
+                      }
+                    }}
+                  >
+                    <option value="ALL_DEPT">All Departments</option>
+                    
+                    {departments.length === 0 ? (
+                      <option value="" disabled>Loading departments...</option>
+                    ) : (
+                      departments.map((d) => (
+                        <option key={d.code} value={d.code}>
+                          {d.name} ({d.code})
+                        </option>
+                      ))
+                    )}
                   </select>
                 )}
               </div>
             )}
 
             <div className="col-md-3">
-              <button type="submit" className="btn btn-primary w-100">
+              <button
+                type="submit"
+                className="btn btn-primary w-100"
+                disabled={
+                  !(
+                    hasUserInteracted ||
+                    hasManagerInteracted ||
+                    hasDepartmentInteracted
+                  )
+                }
+              >
                 Submit
               </button>
             </div>
@@ -598,95 +628,149 @@ const handlePrint = () => {
         </form>
 
         {/* ---------------- REPORT TABLE ---------------- */}
-        {!loading && filteredData.length > 0 && (
+        {!loading && (
           <div ref={reportRef}>
 
-            {/* Header */}
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h6 className="fw-bold mb-0">
-                {reportTitleMap[reportType]} {selectedWeek2 && `(${selectedWeek2})`}
-              </h6>
+            <div className="dt-toolbar">
+              <div className="dt-toolbar-inner">
 
-              <div className="d-flex gap-3">
-                <i className="bi bi-file-earmark-excel text-success fs-4"
-                  role="button"
-                  title="Export Excel"
-                  onClick={() => exportExcel(filteredData, "report.xlsx")}
-                />
-                <i className={`bi bi-printer fs-4 ${isPrinting ? "text-secondary" : "text-primary"}`}
-                  role="button"
-                  title="Print Report"
-                  onClick={handlePrint}
-                />
+                <div className="dt-left">
+                  <div>
+                    Show{" "}
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="form-select d-inline-block mx-2"
+                      style={{ width: "70px" }}
+                    >
+                      <option value="10">10</option>
+                      <option value="25">25</option>
+                      <option value="50">50</option>
+                    </select>
+                    entries
+                  </div>
+
+                  <div className="search-input-wrapper">
+                    <input
+                      type="text"
+                      placeholder="Search report..."
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="dt-right d-flex align-items-center gap-3">
+                  <i className="bi bi-file-earmark-excel text-success fs-4"
+                    role="button"
+                    title="Export Excel"
+                    onClick={() => exportExcel(filteredData, "report.xlsx")}
+                  />
+                  <i className={`bi bi-printer fs-4 ${isPrinting ? "text-secondary" : "text-primary"}`}
+                    role="button"
+                    title="Print Report"
+                    onClick={handlePrint}
+                  />
+                </div>
+
               </div>
             </div>
 
             {/* Table */}
-            <div className="table-responsive">
+            <div className="dt-wrapper" style={{ minHeight: "300px" }}>
+              <div className="table-responsive">
               <table
-                className="table table-bordered table-striped text-center align-middle"
-                style={{ whiteSpace: "nowrap", tableLayout: "auto" }}
+                className="table dt-table align-middle"
+                style={{ whiteSpace: "nowrap", width: "100%", textAlign: "left" }}
               >
-                <thead className="table-info">
+                <thead className="custom-table-header">
                   <tr>
                     {reportType === "weekly" && (
                       <>
                         <th onClick={() => requestSort("id")} style={{ cursor: "pointer" }}>
-                          Employee ID {sortIcon("id")}
+                          <span className="th-label">Employee ID <SortIcon column="id" /></span>
                         </th>
 
-                        <th>Employee Name</th>
-                        <th>Department</th>
-                        <th>Manager</th>
+                        <th onClick={() => requestSort("name")} style={{ cursor: "pointer" }}>
+                          <span className="th-label">Employee Name <SortIcon column="name" /></span>
+                        </th>
+
+                        <th onClick={() => requestSort("department")} style={{ cursor: "pointer" }}>
+                          <span className="th-label">Department <SortIcon column="department" /></span>
+                        </th>
+
+                        <th onClick={() => requestSort("manager")} style={{ cursor: "pointer" }}>
+                          <span className="th-label">Manager <SortIcon column="manager" /></span>
+                        </th>
 
                         <th onClick={() => requestSort("score")} style={{ cursor: "pointer" }}>
-                          Score {sortIcon("score")}
+                          <span className="th-label">Score <SortIcon column="score" /></span>
                         </th>
 
                         <th onClick={() => requestSort("rank")} style={{ cursor: "pointer" }}>
-                          Rank {sortIcon("rank")}
+                          <span className="th-label">Rank <SortIcon column="rank" /></span>
                         </th>
                       </>
                     )}
 
                     {reportType === "department" && (
                       <>
-                        <th>Department</th>
-
-                        <th onClick={() => requestSort("id")} style={{ cursor: "pointer" }}>
-                          Employee ID {sortIcon("id")}
+                        <th onClick={() => requestSort("department")} style={{ cursor: "pointer" }}>
+                          <span className="th-label">Department <SortIcon column="department" /></span>
                         </th>
 
-                        <th>Employee Name</th>
-                        <th>Manager</th>
+                        <th onClick={() => requestSort("id")} style={{ cursor: "pointer" }}>
+                          <span className="th-label">Employee ID <SortIcon column="id" /></span>
+                        </th>
+
+                        <th onClick={() => requestSort("name")} style={{ cursor: "pointer" }}>
+                          <span className="th-label">Employee Name <SortIcon column="name" /></span>
+                        </th>
+
+                        <th onClick={() => requestSort("manager")} style={{ cursor: "pointer" }}>
+                          <span className="th-label">Manager <SortIcon column="manager" /></span>
+                        </th>
 
                         <th onClick={() => requestSort("score")} style={{ cursor: "pointer" }}>
-                          Score {sortIcon("score")}
+                          <span className="th-label">Score <SortIcon column="score" /></span>
                         </th>
 
                         <th onClick={() => requestSort("rank")} style={{ cursor: "pointer" }}>
-                          Rank {sortIcon("rank")}
+                          <span className="th-label">Rank <SortIcon column="rank" /></span>
                         </th>
                       </>
                     )}
 
                     {reportType === "manager" && (
                       <>
-                        <th>Manager</th>
-                        <th>Department</th>
-
-                        <th onClick={() => requestSort("id")} style={{ cursor: "pointer" }}>
-                          Employee ID {sortIcon("id")}
+                        <th onClick={() => requestSort("manager")} style={{ cursor: "pointer" }}>
+                          <span className="th-label">Manager <SortIcon column="manager" /></span>
                         </th>
 
-                        <th>Employee Name</th>
+                        <th onClick={() => requestSort("department")} style={{ cursor: "pointer" }}>
+                          <span className="th-label">Department <SortIcon column="department" /></span>
+                        </th>
+
+                        <th onClick={() => requestSort("id")} style={{ cursor: "pointer" }}>
+                          <span className="th-label">Employee ID <SortIcon column="id" /></span>
+                        </th>
+
+                        <th onClick={() => requestSort("name")} style={{ cursor: "pointer" }}>
+                          <span className="th-label">Employee Name <SortIcon column="name" /></span>
+                        </th>
 
                         <th onClick={() => requestSort("score")} style={{ cursor: "pointer" }}>
-                          Score {sortIcon("score")}
+                          <span className="th-label">Score <SortIcon column="score" /></span>
                         </th>
 
                         <th onClick={() => requestSort("rank")} style={{ cursor: "pointer" }}>
-                          Rank {sortIcon("rank")}
+                          <span className="th-label">Rank <SortIcon column="rank" /></span>
                         </th>
                       </>
                     )}
@@ -694,84 +778,102 @@ const handlePrint = () => {
                 </thead>
 
                 <tbody>
-                  {paginatedData.map((emp) => (
-                    <tr key={emp.id}>
-                      {reportType === "weekly" && (
-                        <>
-                          <td>{emp.id}</td>
-                          <td>{emp.name}</td>
-                          <td>{emp.department}</td>
-                          <td>{emp.manager}</td>
-                          <td>{emp.score}</td>
-                          <td>{emp.rank}</td>
-                        </>
-                      )}
-
-                      {reportType === "department" && (
-                        <>
-                          <td>{emp.department}</td>
-                          <td>{emp.id}</td>
-                          <td>{emp.name}</td>
-                          <td>{emp.manager}</td>
-                          <td>{emp.score}</td>
-                          <td>{emp.rank}</td>
-                        </>
-                      )}
-
-                      {reportType === "manager" && (
-                        <>
-                          <td>{emp.manager}</td>
-                          <td>{emp.department}</td>
-                          <td>{emp.id}</td>
-                          <td>{emp.name}</td>
-                          <td>{emp.score}</td>
-                          <td>{emp.rank}</td>
-                        </>
-                      )}
+                  {sortedData.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="empty-state-row">
+                        <div style={{ fontSize: "3rem", color: "#ccc" }}>
+                          <i className="bi bi-inbox"></i>
+                        </div>
+                        <p className="mt-3 text-muted mb-0" style={{ fontSize: "1.1rem" }}>
+                          No performance records found
+                        </p>
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    paginatedData.map((emp) => (
+                      <tr key={emp.id}>
+                        {reportType === "weekly" && (
+                          <>
+                            <td>{emp.id}</td>
+                            <td>{emp.name}</td>
+                            <td>{emp.department}</td>
+                            <td>{emp.manager}</td>
+                            <td>{emp.score}</td>
+                            <td>{emp.rank}</td>
+                          </>
+                        )}
+
+                        {reportType === "department" && (
+                          <>
+                            <td>{emp.department}</td>
+                            <td>{emp.id}</td>
+                            <td>{emp.name}</td>
+                            <td>{emp.manager}</td>
+                            <td>{emp.score}</td>
+                            <td>{emp.rank}</td>
+                          </>
+                        )}
+
+                        {reportType === "manager" && (
+                          <>
+                            <td>{emp.manager}</td>
+                            <td>{emp.department}</td>
+                            <td>{emp.id}</td>
+                            <td>{emp.name}</td>
+                            <td>{emp.score}</td>
+                            <td>{emp.rank}</td>
+                          </>
+                        )}
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
+            </div>
 
-            {/* ---------------- PAGINATION ---------------- */}
-            {totalPages > 1 && (
-              <div className="d-flex justify-content-between align-items-center mt-3">
+            <div className="dt-pagination d-flex justify-content-between align-items-center mt-3">
 
-                <div className="text-muted">
-                  Showing {(currentPage - 1) * pageSize + 1} –{" "}
-                  {Math.min(currentPage * pageSize, filteredData.length)} of{" "}
-                  {filteredData.length} records
-                </div>
+              <div className="text-muted" style={{ fontWeight: "normal", margin: 0 }}>
+                Showing {(currentPage - 1) * pageSize + 1} – 
+                {Math.min(currentPage * pageSize, sortedData.length)} of {sortedData.length} records
+              </div>
 
-                <nav>
-                  <ul className="pagination mb-0">
+              <nav>
+                <ul className="pagination mb-0">
 
-                    <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-                      <button className="page-link" onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}>
-                        Previous
-                      </button>
-                    </li>
+                  {/* FIRST */}
+                  <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                    <button className="page-link" onClick={() => setCurrentPage(1)}>«</button>
+                  </li>
 
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                      <li key={page} className={`page-item ${page === currentPage ? "active" : ""}`}>
-                        <button className="page-link" onClick={() => setCurrentPage(page)}>
-                          {page}
-                        </button>
+                  {/* PREVIOUS */}
+                  <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                    <button className="page-link" onClick={() => setCurrentPage(currentPage - 1)}>‹</button>
+                  </li>
+
+                  {/* DYNAMIC PAGE NUMBERS */}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(p => p >= currentPage - 2 && p <= currentPage + 2)
+                    .map(p => (
+                      <li key={p} className={`page-item ${currentPage === p ? "active" : ""}`}>
+                        <button className="page-link" onClick={() => setCurrentPage(p)}>{p}</button>
                       </li>
                     ))}
 
-                    <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-                      <button className="page-link" onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}>
-                        Next
-                      </button>
-                    </li>
+                  {/* NEXT */}
+                  <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                    <button className="page-link" onClick={() => setCurrentPage(currentPage + 1)}>›</button>
+                  </li>
 
-                  </ul>
-                </nav>
-              </div>
-            )}
+                  {/* LAST */}
+                  <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                    <button className="page-link" onClick={() => setCurrentPage(totalPages)}>»</button>
+                  </li>
 
+                </ul>
+              </nav>
+            </div>
           </div>
         )}
       </div> 

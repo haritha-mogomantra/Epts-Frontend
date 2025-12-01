@@ -26,12 +26,9 @@ const getISOWeek = (date) => {
 };
 
 
-
 const PerformanceMetrics = () => {
   const [selectedWeek, setSelectedWeek] = useState("");
-
   const [employeeId, setEmployeeId] = useState("");
-  const [viewEmployeeId, setViewEmployeeId] = useState("");
   const [employeeData, setEmployeeData] = useState({
     name: "",
     department: "",
@@ -73,22 +70,37 @@ const PerformanceMetrics = () => {
   const printRef = useRef(null);
   const location = useLocation();
   const { employee, mode, selectedWeek: navigatedWeek } = location.state || {};
+  const [isReadOnly, setIsReadOnly] = useState(mode === "view");
 
+  //AUTO SELECT LATEST WEEK ON PAGE LOAD (ADD MODE)
   useEffect(() => {
-    if (navigatedWeek) {
-      setSelectedWeek(navigatedWeek);
-    }
-  }, [navigatedWeek]);
+    const fetchLatestWeek = async () => {
+      try {
+        const res = await axiosInstance.get("/performance/latest-week/");
+        let { year, week } = res.data;
 
+        // Performance is filled for previous week
+        let latestWeek = week - 1;
+        let latestYear = year;
 
-  // Keep fields editable ONLY in edit mode
-  const [isReadOnly, setIsReadOnly] = useState(true);
+        // Handle edge case: Week 1 → go to last week of previous year
+        if (latestWeek === 0) {
+          latestYear = year - 1;
+          latestWeek = 52;
+        }
 
-  useEffect(() => {
-    setIsReadOnly(mode !== "edit");
-  }, [mode]);
+        const formattedWeek = `${latestYear}-W${String(latestWeek).padStart(2, "0")}`;
+        setSelectedWeek(formattedWeek);
 
+      } catch (error) {
+        console.error("Error fetching latest week:", error);
+      }
+    };
 
+      if (!evaluationId) {
+        fetchLatestWeek();
+      }
+    }, [evaluationId]);
 
   useEffect(() => {
     const fetchPerformanceList = async () => {
@@ -123,40 +135,49 @@ const PerformanceMetrics = () => {
 
 
   useEffect(() => {
-    if (!employee) return;
+    if (employee) {
+      setEmployeeId(employee.emp_id);
 
-    const empId =
-      employee.emp_id ||
-      employee.employee_emp_id ||
-      employee.user?.emp_id ||
-      "";
-
-    // always fill visible ID
-    setViewEmployeeId(empId);
-
-    // IMPORTANT: for edit mode, set employeeId so submit works
-    if (mode === "edit") {
-      setEmployeeId(empId);
+      setEmployeeData({
+        name: employee.full_name || "",
+        department: employee.department_name || "",
+        manager: employee.manager_name || "",
+      });
     }
+  }, [employee]);
 
-    setEmployeeData({
-      name:
-        employee.employee_name ||
-        employee.full_name ||
-        employee.user?.full_name ||
-        "",
-      department: employee.department_name || "",
-      manager: employee.manager_name || employee.evaluator_name || "",
-    });
-  }, [employee, mode]);
 
   useEffect(() => {
-    if (mode === "view" && navigatedWeek) {
+    if (location.state?.forceLatestWeek) {
+      // Always load latest week for Add Performance
+      const fetchLatestWeek = async () => {
+        try {
+          const res = await axiosInstance.get("/performance/latest-week/");
+          const { year, week } = res.data;
+          const formattedWeek = `${year}-W${String(week).padStart(2, "0")}`;
+          setSelectedWeek(formattedWeek);
+        } catch (error) {
+          console.error("Error fetching latest week:", error);
+        }
+      };
+      fetchLatestWeek();
+      return;
+    }
+
+    if (navigatedWeek) {
       setSelectedWeek(navigatedWeek);
     }
-  }, [mode, navigatedWeek]);
-  
-  
+  }, [navigatedWeek, location.state]);
+
+
+  //Reset duplicate error when employee or week changes
+  useEffect(() => {
+    if (duplicateError) {
+      setDuplicateError("");
+    }
+  }, [employeeId, selectedWeek]);
+
+
   useEffect(() => {
     const loadEmployeeEvaluation = async () => {
       if (employee) {
@@ -211,16 +232,14 @@ const PerformanceMetrics = () => {
               evalData.employee?.full_name ||
               evalData.employee?.user?.full_name ||
               "",
-
             department:
+              evalData.department_name ||
               evalData.employee?.department_name ||
               "",
-
             manager:
               evalData.employee?.manager_name ||
               evalData.evaluator?.full_name ||
               "",
-
             rank: evalData.rank || "-",
           });
 
@@ -241,60 +260,51 @@ const PerformanceMetrics = () => {
       return;
     }
 
-    setLoading(prev => ({ ...prev, search: true }));
+    setDuplicateError("");
+    setLoading((prev) => ({ ...prev, search: true }));
 
     const { year, week } = parseWeek(selectedWeek);
 
-    if (!year || !week) {
-      setDuplicateError("Please select a valid week before searching.");
-      return;
-    }
-
     try {
-      console.log("🔍 Checking duplicate for:", employeeId, year, week);
-
-      const response = await axiosInstance.get(
+      // DUPLICATE CHECK
+      const duplicateCheck = await axiosInstance.get(
         `/performance/check-duplicate/?emp_id=${employeeId}&year=${year}&week=${week}`
       );
 
-      console.log("✅ Duplicate API response:", response.data);
-
-      if (response.data.exists) {
-        setDuplicateError(
-          `Performance already exists for Employee ${employeeId} - Week ${week}, ${year}`
-        );
-        return;  // ⬅ CRITICAL: stop execution here
-      } else {
-        setDuplicateError("");
+      if (duplicateCheck.data.exists) {
+        setDuplicateError("⚠ Record already exists for this employee for this week.");
       }
 
-      // Always load employee details too
-      const empRes = await axiosInstance.get(`employee/employees/${employeeId}/`);
+      // ALWAYS FETCH EMPLOYEE DETAILS
+      const res = await axiosInstance.get(`employee/employees/${employeeId}/`);
 
-      if (empRes.data) {
-        const emp = empRes.data;
-
-        let dept = emp.department_name;
-
-
+      if (res.data) {
+        const emp = res.data;
         setEmployeeData({
-          name: emp.full_name || "",
-          department: dept,
-          manager: emp.manager_name || "Not Assigned",
+          name:
+            emp.full_name ||
+            emp.user?.full_name ||
+            `${(emp.user?.first_name || "")} ${(emp.user?.last_name || "")}`.trim(),
+          department:
+            emp.department?.name ||
+            emp.department_name ||
+            emp.designation ||
+            "N/A",
+          manager:
+            emp.manager_name ||
+            emp.manager ||
+            emp.manager_fullname ||
+            emp.manager_user_fullname ||
+            "Not Assigned",
         });
-      }
-
-    } catch (error) {
-      console.error("Duplicate check failed:", error);
-
-      // ✅ FORCE UI FEEDBACK if backend blocks
-      if (error.response?.status === 401) {
-        setDuplicateError("⚠ Authentication required. Please login again.");
       } else {
-        setDuplicateError("⚠ Unable to check duplicate. Try again.");
+        setEmployeeData({ name: "", department: "", manager: "" });
       }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Error while processing request.");
     } finally {
-      setLoading(prev => ({ ...prev, search: false }));
+      setLoading((prev) => ({ ...prev, search: false }));
     }
   };
 
@@ -312,7 +322,7 @@ const PerformanceMetrics = () => {
       return;
     }
 
-
+    // llow a single "0" as valid value
     if (value === "0") {
       updatedScores[index] = "0";
       setScores(updatedScores);
@@ -451,12 +461,12 @@ const PerformanceMetrics = () => {
                 ${measurements
                   .map(
                     (m, i) => `
-                      <tr>
-                        <td>${m}</td>
-                        <td>${scores[i] || ""}</td>
-                        <td>${comments[i] || ""}</td>
-                      </tr>
-                    `
+                  <tr>
+                    <td>${m}</td>
+                    <td>${scores[i] || ""}</td>
+                    <td></td>
+                  </tr>
+                `
                   )
                   .join("")}
               </tbody>
@@ -486,11 +496,6 @@ const PerformanceMetrics = () => {
   // 🔹 SUBMIT HANDLER
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (duplicateError) {
-      alert("Duplicate evaluation exists. Please change the week.");
-      return;
-    }
 
     if (!employeeId) {
       alert("Please search and select an Employee first.");
@@ -537,10 +542,10 @@ const PerformanceMetrics = () => {
     const { year, week } = parseWeek(selectedWeek);
 
     const payload = {
-      employee: employeeId.trim(),
+      employee_emp_id: Number(employeeId),
       evaluation_type: "Manager",
       year: year,
-      week_number: week, 
+      week: week,
       review_date: new Date().toISOString().slice(0, 10),
       remarks: "",
     };
@@ -575,7 +580,7 @@ const PerformanceMetrics = () => {
 
       if (res.status === 201 || res.status === 200) {
         alert("Evaluation submitted successfully.");
-        navigate("/base/employeeperformance");
+        navigate("/admin/employeeperformance");
       } else {
         console.log("Server responded:", res.status, res.data);
         alert("Submission returned unexpected status. See console.");
@@ -621,19 +626,13 @@ const PerformanceMetrics = () => {
       <h5>EMPLOYEE PERFORMANCE METRICS</h5>
     </div>
 
-    <div className="card">
-    {duplicateError && (
-      <div className="px-3 pt-3">
-        <div className="alert alert-danger alert-dismissible fade show" role="alert">
-          {duplicateError}
-          <button
-            type="button"
-            className="btn-close"
-            onClick={() => setDuplicateError("")}
-          ></button>
-        </div>
-      </div>
-    )}
+    <div className="card-body">
+      <div className="card">
+        {duplicateError && (
+          <div className="alert alert-danger text-center fw-bold my-2">
+            {duplicateError}
+          </div>
+        )}
 
         {/* Search + Buttons */}
         <div className="d-flex justify-content-between align-items-center mb-2 mt-2 p-2">
@@ -645,14 +644,12 @@ const PerformanceMetrics = () => {
               placeholder="Enter Employee ID"
               value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}
-              readOnly={mode === "edit" || mode === "view"}
-              disabled={mode === "edit" || mode === "view"}
             />
 
             <button
               className="btn btn-primary ms-2"
               onClick={handleSearch}
-              disabled={loading.search || mode === "edit" || mode === "view"}
+              disabled={loading.search}
             >
               {loading.search ? (
                 <>
@@ -665,22 +662,16 @@ const PerformanceMetrics = () => {
             </button>
           </div>
 
-          <div className="d-flex align-items-center gap-2">
-
+          <div>
             <button
-              className="btn btn-primary px-3"
-              onClick={() =>
-                navigate("/base/employeeperformance", {
-                  state: { returnWeek: selectedWeek }
-                })
-              }
+              className="btn btn-primary me-2"
+              onClick={() => navigate("/admin/employeeperformance")}
             >
               <i className="bi bi-arrow-left me-1"></i> Back
             </button>
 
             <button
-              className="btn btn-outline-secondary d-flex align-items-center px-3"
-              style={{ borderRadius: "6px", fontWeight: "500" }}
+              className="btn btn-success"
               onClick={handlePrint}
               disabled={loading.print}
             >
@@ -690,12 +681,9 @@ const PerformanceMetrics = () => {
                   Printing...
                 </>
               ) : (
-                <>
-                  <i className="bi bi-printer me-2"></i> Print
-                </>
+                "Print"
               )}
             </button>
-
           </div>
         </div>
 
@@ -713,32 +701,12 @@ const PerformanceMetrics = () => {
                     className="form-control"
                     style={weekInputStyle}
                     value={selectedWeek}
-                    onChange={(e) => {
-                      if (mode === "view") return;
-                      const week = e.target.value;
-                      setSelectedWeek(week);
-                      setDuplicateError("");
-                    }}
+                    onChange={(e) => setSelectedWeek(e.target.value)}
                     min={minWeek}
                     max={maxWeek}
                     title="Only current and last 2 weeks are allowed"
-                    readOnly={mode === "view"}
-                    disabled={mode === "view"}
                   />
                 </div>
-
-                {mode === "view" && (
-                  <div className="col-md-3 mb-3">
-                    <label className="form-label fw-bold">Employee ID</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={viewEmployeeId}
-                      readOnly
-                      disabled
-                    />
-                  </div>
-                )}
 
                 {/* Hidden Employee ID input — logic remains same */}
                 <input
@@ -820,7 +788,8 @@ const PerformanceMetrics = () => {
                             max="100"
                             value={scores[rowIndex] || ""}
                             onChange={(e) => handleScoreChange(rowIndex, e.target.value)}
-                            readOnly={isReadOnly}   // keep only this
+                            readOnly={isReadOnly}
+                            disabled={isReadOnly}
                           />
                         </td>
 
@@ -834,7 +803,8 @@ const PerformanceMetrics = () => {
                               updated[rowIndex] = e.target.value;
                               setComments(updated);
                             }}
-                            readOnly={isReadOnly}   // keep only this
+                            readOnly={isReadOnly}
+                            disabled={isReadOnly}
                           />
                         </td>
                       </tr>
@@ -855,7 +825,7 @@ const PerformanceMetrics = () => {
             <button
               type="button"
               className="btn btn-secondary px-4 mb-2"
-              onClick={mode === "view" ? () => navigate("/base/employeeperformance") : handleCancel}
+              onClick={mode === "view" ? () => navigate("/admin/employeeperformance") : handleCancel}
             >
               {mode === "view" ? "Back" : "Cancel"}
             </button>
@@ -864,7 +834,7 @@ const PerformanceMetrics = () => {
               <button
                 type="submit"
                 className="btn btn-primary px-4 mb-2"
-                disabled={loading.submit || !!duplicateError}
+                disabled={loading.submit || duplicateError}
               >
                 {loading.submit ? (
                   <>
@@ -878,6 +848,7 @@ const PerformanceMetrics = () => {
             )}
           </div>
         </form>
+      </div>
     </div>
   </div>
 );

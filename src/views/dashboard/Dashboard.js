@@ -249,25 +249,6 @@ function PerformanceDashboard() {
         <h5 className="">DASHBOARD</h5>
       </div>
 
-      {/* ================= CHART ROW ================= */}
-      <div className="row">
-
-        <div className="col-md-12">
-          <div className="card">
-            <div className="card-header text-white bg-info fw-bold">
-              <h5>Weekly Performance Chart</h5>
-            </div>
-
-            <div style={{ height: "320px", padding: "15px" }}>
-              {rankedEmployees.length > 0 && (
-                <Bar data={chartData} options={chartOptions} />
-              )}
-            </div>
-          </div>
-        </div>
-
-      </div>
-
       {/* ============== TOP & WEAK MEMBERS ROW ============== */}
       <div className="row mt-4">
 
@@ -362,156 +343,176 @@ function PerformanceDashboard() {
 
       </div>
 
-      {/* ========== HEADER CARD ========== */}
-      <div className="card mt-5 shadow-sm mb-3">
-        <div className="card-body d-flex justify-content-between align-items-center">
+      {/* ================= CHART ROW ================= */}
+      <div className="row pt-3">
 
-          <div>
-            <h5 className="mb-0 fw-semibold text-dark">
-              All Employee Performance
-            </h5>
-            <small className="text-muted">
-              Weekly ranking overview of all employees
-            </small>
-          </div>
-
-          <div style={{ minWidth: "220px" }}>
-            <label className="form-label fw-semibold mb-1">Department</label>
-            <select
-              className="form-select"
-              value={selectedDept}
-              onChange={(e) => setSelectedDept(e.target.value)}
-            >
-              <option value="all">All Departments</option>
-              {departments.map(dept => (
-                <option key={dept.id} value={dept.name}>
-                  {dept.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-        </div>
-      </div>
-
-      {/* ========== TABLE CARD ========== */}
-      <div className="card shadow-sm">
-
-        <div className="table-responsive">
-          <table className="table align-middle table-hover mb-0">
-
-            <thead className="table-dark text-center">
-              <tr>
-                <th>Emp ID</th>
-                <th className="text-start">Name</th>
-                <th className="text-start">Department</th>
-                <th>Score</th>
-                <th>Rank</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {currentEmployees.map((emp) => {
-                const isTop = topPerformers.some(p => p.id === emp.id);
-                const isLow = lowPerformers.some(p => p.id === emp.id);
-
-                return (
-                  <tr
-                    key={emp.id}
-                    className={
-                      isTop
-                        ? "table-success fw-semibold"
-                        : isLow
-                        ? "table-danger"
-                        : ""
-                    }
-                  >
-                    <td className="text-center">{emp.id}</td>
-
-                    <td className="text-start">
-                      <div className="fw-semibold">{emp.name}</div>
-                      <small className="text-muted">{emp.designation}</small>
-                    </td>
-
-                    <td className="text-start">
-                      <span className={`badge ${getDeptColor(emp.department)} text-white`}>
-                        {emp.department}
-                      </span>
-                    </td>
-
-                    <td className="text-center fw-bold">{emp.score}</td>
-
-                    <td className="text-center">
-                      <span
-                        className={`badge ${
-                          isTop
-                            ? "bg-success"
-                            : isLow
-                            ? "bg-danger"
-                            : "bg-secondary"
-                        }`}
-                      >
-                        #{emp.rank}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-
-          </table>
-          {rankedEmployees.length > 0 && totalPages > 1 && (
-            <div className="d-flex justify-content-between align-items-center mt-3 px-3 pb-3">
-
-              {/* Record Count - SAME STYLE */}
-              <div className="text-muted">
-                Showing {(currentPage - 1) * rowsPerPage + 1} –{" "}
-                {Math.min(currentPage * rowsPerPage, rankedEmployees.length)} of {filteredRankedEmployees.length} records
-              </div>
-
-              {/* Pagination Buttons - SAME DESIGN AS EMPLOYEE TABLE */}
-              <nav>
-                <ul className="pagination mb-0">
-
-                  {/* Previous */}
-                  <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-                    <button
-                      className="page-link"
-                      onClick={() => currentPage > 1 && goToPage(currentPage - 1)}
-                    >
-                      Previous
-                    </button>
-                  </li>
-
-                  {/* Page Numbers */}
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <li key={page} className={`page-item ${page === currentPage ? "active" : ""}`}>
-                      <button
-                        className="page-link"
-                        onClick={() => goToPage(page)}
-                      >
-                        {page}
-                      </button>
-                    </li>
-                  ))}
-
-                  {/* Next */}
-                  <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-                    <button
-                      className="page-link"
-                      onClick={() => currentPage < totalPages && goToPage(currentPage + 1)}
-                    >
-                      Next
-                    </button>
-                  </li>
-
-                </ul>
-              </nav>
-
+        <div className="col-md-12">
+          <div className="card">
+            <div className="card-header text-white bg-info fw-bold">
+              <h5>Weekly Performance Chart</h5>
             </div>
-          )}
+
+            <div style={{ height: "320px", padding: "15px" }}>
+              {rankedEmployees.length > 0 && (
+                <Bar data={chartData} options={chartOptions} />
+              )}
+            </div>
+          </div>
         </div>
+
       </div>
+
+      
+
+     <div className="card mt-5 shadow-sm mb-3">
+
+  {/* ========== TOP PART: Header + Controls ========== */}
+  <div className="card-body">
+    <div className="row align-items-center">
+      
+      {/* Left: Title + subtitle */}
+      <div className="col-12 col-md-8 mb-3 mb-md-0">
+        <h5 className="mb-0 fw-semibold text-dark">All Employee Performance</h5>
+        <small className="text-muted">Weekly ranking overview of all employees</small>
+      </div>
+
+      {/* Right: Department select (keeps minWidth you used) */}
+      <div className="col-12 col-md-4">
+        <label className="form-label fw-semibold mb-1">Department</label>
+        <select
+          className="form-select"
+          value={selectedDept}
+          onChange={(e) => setSelectedDept(e.target.value)}
+          style={{ minWidth: "220px" }}
+        >
+          <option value="all">All Departments</option>
+          {departments.map(dept => (
+            <option key={dept.id} value={dept.name}>
+              {dept.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+    </div>
+  </div>
+
+  {/* ========== BOTTOM PART: Table Card ========== */}
+  <div className="card shadow-sm m-2">
+    <div className="table-responsive">
+      <table className="table align-middle table-hover mb-0">
+        <thead className="table-dark text-center">
+          <tr>
+            <th>Emp ID</th>
+            <th className="text-start">Name</th>
+            <th className="text-start">Department</th>
+            <th>Score</th>
+            <th>Rank</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {currentEmployees.map((emp) => {
+            const isTop = topPerformers.some(p => p.id === emp.id);
+            const isLow = lowPerformers.some(p => p.id === emp.id);
+
+            return (
+              <tr
+                key={emp.id}
+                className={
+                  isTop
+                    ? "table-success fw-semibold"
+                    : isLow
+                    ? "table-danger"
+                    : ""
+                }
+              >
+                <td className="text-center">{emp.id}</td>
+
+                <td className="text-start">
+                  <div className="fw-semibold">{emp.name}</div>
+                  <small className="text-muted">{emp.designation}</small>
+                </td>
+
+                <td className="text-start">
+                  <span className={`badge ${getDeptColor(emp.department)} text-white`}>
+                    {emp.department}
+                  </span>
+                </td>
+
+                <td className="text-center fw-bold">{emp.score}</td>
+
+                <td className="text-center">
+                  <span
+                    className={`badge ${
+                      isTop
+                        ? "bg-success"
+                        : isLow
+                        ? "bg-danger"
+                        : "bg-secondary"
+                    }`}
+                  >
+                    #{emp.rank}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {/* Pagination + record count — unchanged logic */}
+      {rankedEmployees.length > 0 && totalPages > 1 && (
+        <div className="d-flex justify-content-between align-items-center mt-3 px-3 pb-3">
+
+          <div className="text-muted">
+            Showing {(currentPage - 1) * rowsPerPage + 1} –{" "}
+            {Math.min(currentPage * rowsPerPage, rankedEmployees.length)} of {filteredRankedEmployees.length} records
+          </div>
+
+          <nav>
+            <ul className="pagination mb-0">
+              <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                <button
+                  className="page-link"
+                  onClick={() => currentPage > 1 && goToPage(currentPage - 1)}
+                >
+                  Previous
+                </button>
+              </li>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <li key={page} className={`page-item ${page === currentPage ? "active" : ""}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => goToPage(page)}
+                  >
+                    {page}
+                  </button>
+                </li>
+              ))}
+
+              <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                <button
+                  className="page-link"
+                  onClick={() => currentPage < totalPages && goToPage(currentPage + 1)}
+                >
+                  Next
+                </button>
+              </li>
+            </ul>
+          </nav>
+
+        </div>
+      )}
+
+    </div>
+  </div>
+</div>
+
+
+
+      
       {showModal && selectedEmployee && (
         <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,0.5)" }}>
           <div className="modal-dialog modal-dialog-centered">

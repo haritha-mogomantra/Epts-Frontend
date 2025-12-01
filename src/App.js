@@ -60,7 +60,7 @@ const App = () => {
       >
         <Routes>
           {/* 🔓 Public Routes */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route exact path="/login" element={<Login />} />
           <Route exact path="/register" element={<Register />} />
           <Route exact path="/404" element={<Page404 />} />

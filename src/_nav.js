@@ -1,6 +1,14 @@
 import React from "react";
 import CIcon from "@coreui/icons-react";
-import { cilUser, cilSpeedometer, cilCursor } from "@coreui/icons";
+import {
+  cilUser,
+  cilSpeedometer,
+  cilCursor,
+  cilAddressBook,   // Employee Details
+  cilChartLine,     // Employee Performance
+  cilLockLocked     // Employee Credentials
+} from "@coreui/icons";
+
 import { CNavItem } from "@coreui/react";
 
 // Read role from localStorage
@@ -19,23 +27,23 @@ const adminMenu = [
 
   {
     component: CNavItem,
-    name: "Employee details",
-    to: "/base/employeedetails",
-    icon: <CIcon icon={cilUser} customClassName="nav-icon" />,
+    name: "Employee Details",
+    to: "/admin/employeedetails",
+    icon: <CIcon icon={cilAddressBook} customClassName="nav-icon" />,
   },
 
   {
     component: CNavItem,
     name: "Employee Performance",
-    to: "/base/employeeperformance",
-    icon: <CIcon icon={cilUser} customClassName="nav-icon" />,
+    to: "/admin/employeeperformance",
+    icon: <CIcon icon={cilChartLine} customClassName="nav-icon" />,
   },
 
   {
     component: CNavItem,
-    name: "Employee credentials",
-    to: "/base/cards",
-    icon: <CIcon icon={cilUser} customClassName="nav-icon" />,
+    name: "Employee Credentials",
+    to: "/admin/cards",
+    icon: <CIcon icon={cilLockLocked} customClassName="nav-icon" />,
   },
 
   {
@@ -53,15 +61,15 @@ const employeeMenu = [
   {
     component: CNavItem,
     name: "Employee Dashboard",
-    to: "/base/collapses",
+    to: "/admin/collapses",
     icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />,
   },
 
   {
     component: CNavItem,
     name: "Employee Performance",
-    to: "/base/carousels",
-    icon: <CIcon icon={cilUser} customClassName="nav-icon" />,
+    to: "/admin/carousels",
+    icon: <CIcon icon={cilChartLine} customClassName="nav-icon" />,
   },
 ];
 

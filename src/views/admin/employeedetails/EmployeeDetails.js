@@ -6,12 +6,17 @@ function EmployeeTables() {
   const API_URL = "http://127.0.0.1:8000/api/employee/employees/";
   const CSV_UPLOAD_URL = "http://127.0.0.1:8000/api/employee/upload_csv/";
   const MANAGER_LIST_URL = "http://127.0.0.1:8000/api/employee/employees/managers/";
+  const DEPARTMENT_LIST_URL = "http://127.0.0.1:8000/api/employee/departments/";
+
 
   const [employees, setEmployees] = useState([]);
   const [managers, setManagers] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [searchPage, setSearchPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [alert, setAlert] = useState({ message: "", type: "" });
   const [isSearching, setIsSearching] = useState(false);
@@ -49,48 +54,101 @@ function EmployeeTables() {
 
 
   const managerLabel = (m) => {
-    const name =
+    return (
       m.full_name ||
-      `${m.user?.first_name || ""} ${m.user?.last_name || ""}`.trim();
-    const id = m.emp_id || m.user?.emp_id || "";
-    return id ? `${name} (${id})` : name || "Unknown";
+      `${m.user?.first_name || ""} ${m.user?.last_name || ""}`.trim() ||
+      "Unknown"
+    );
   };
 
-  const fetchManagers = async () => {
+  const fetchManagers = async (deptCode = "") => {
     try {
-      const res = await fetch(MANAGER_LIST_URL);
+      const url = deptCode
+        ? `${MANAGER_LIST_URL}?department_code=${deptCode}`
+        : MANAGER_LIST_URL; // ✅ ALL managers if no dept
+
+      const res = await fetch(url, { headers: authHeaders });
       const data = await res.json();
+
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data.results)
+        ? data.results
+        : [];
+
       setManagers(
-        (data.results || data).map((m) => ({
-          emp_id: m.emp_id || m.user?.emp_id || "",
+        list.map((m) => ({
+          emp_id: m.emp_id,
           full_name:
             m.full_name ||
             `${m.user?.first_name || ""} ${m.user?.last_name || ""}`.trim(),
         }))
       );
     } catch (error) {
-      console.error("Error fetching manager list:", error);
+      console.error("Error fetching managers:", error);
+      setManagers([]);
     }
   };
 
-  const fetchEmployees = async (page = 1, orderingParam = "") => {
+  const fetchDepartments = async () => {
+    try {
+      const res = await fetch(DEPARTMENT_LIST_URL, {
+        headers: authHeaders
+      });
+
+      const data = await res.json();
+
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data.results)
+        ? data.results
+        : [];
+
+      setDepartments(list);
+    } catch (error) {
+      console.error("Error fetching departments:", error);
+      setDepartments([]);
+    }
+  };
+
+
+  const fetchEmployees = async (page = 1, orderingParam = "", search = "") => {
+    
     setLoading(true);
 
     try {
-      const url = `${API_URL}?page=${page}${orderingParam}`;
-      const res = await fetch(url, {
-        headers: authHeaders,
-      });
+      const url = `${API_URL}?page=${page}&page_size=${pageSize}${orderingParam}${search ? `&search=${encodeURIComponent(search)}` : ""}`;
+      const res = await fetch(url, { headers: authHeaders });
       const data = await res.json();
 
       setEmployees(data.results || []);
-      setTotalPages(data.total_pages || Math.ceil((data.count || 0) / 10));
+      setTotalPages(data.total_pages || Math.ceil((data.count || 0) / pageSize));
       setCurrentPage(data.current_page || page);
       setTotalRecords(data.count || 0);
-
     } catch (error) {
       console.error("Error fetching employees:", error);
-      setAlert({ message: "Failed to load employees", type: "danger" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadSearchResults = async (page, value) => {
+    try {
+      setLoading(true);
+
+      const res = await fetch(
+        `${API_URL}?search=${encodeURIComponent(value)}&page=${page}&page_size=${pageSize}`,
+        { headers: authHeaders }
+      );
+
+      const data = await res.json();
+
+      setEmployees(data.results || []);
+      setTotalPages(data.total_pages || Math.ceil((data.count || 0) / pageSize));
+      setSearchPage(page);
+      setTotalRecords(data.count || 0);
+    } catch (error) {
+      console.error("Search pagination error:", error);
     } finally {
       setLoading(false);
     }
@@ -120,6 +178,20 @@ function EmployeeTables() {
     }
   };
 
+
+  useEffect(() => {
+    const savedPage = sessionStorage.getItem("emp_page");
+    const savedSearch = sessionStorage.getItem("emp_search");
+
+    if (savedSearch) {
+      setSearchTerm(savedSearch);
+      setIsSearching(true);
+      loadSearchResults(savedPage || 1, savedSearch);
+    } else if (savedPage) {
+      setCurrentPage(parseInt(savedPage));
+    }
+  }, []);
+
   useEffect(() => {
     setPageLoading(true); 
     let ordering = "";
@@ -133,9 +205,33 @@ function EmployeeTables() {
       setPageLoading(false);
     });
 
-    fetchManagers();
+    fetchDepartments();
   }, []);
 
+
+  useEffect(() => {
+    if (!isSearching) {
+      let ordering = "";
+      if (sortConfig.key) {
+        ordering = `&ordering=${
+          sortConfig.direction === "asc" ? sortConfig.key : "-" + sortConfig.key
+        }`;
+      }
+
+      fetchEmployees(currentPage, ordering);
+    }
+  }, [currentPage, sortConfig]);
+
+  useEffect(() => {
+    let ordering = "";
+    if (sortConfig.key) {
+      ordering = `&ordering=${
+        sortConfig.direction === "asc" ? sortConfig.key : "-" + sortConfig.key
+      }`;
+    }
+
+    fetchEmployees(currentPage, ordering);
+  }, [pageSize]);
 
   useEffect(() => {
     if (alert.message) {
@@ -144,51 +240,62 @@ function EmployeeTables() {
     }
   }, [alert]);
 
-  const handleSearchChange = (e) => {
-  const value = e.target.value.trim();
-  setSearchTerm(value);
+  // ✅ AUTO-REFRESH MANAGERS WHEN DEPARTMENT CHANGES
+  useEffect(() => {
+    if (!showModal) return;
 
-  // Clear any previous debounce timer
-  if (searchTimeoutRef.current) {
-    clearTimeout(searchTimeoutRef.current);
-  }
-
-  // Debounce API call by 500ms after typing stops
-  searchTimeoutRef.current = setTimeout(async () => {
-    try {
-      // If search box is empty, restore paginated data (no reload flicker)
-      if (!value) {
-        if (isSearching) setIsSearching(false);
-        setLoading(true);
-        await fetchEmployees(currentPage);
-        setLoading(false);
-        return;
-      }
-
-      // Avoid redundant refresh
-      if (value === searchTerm && employees.length > 0 && isSearching) return;
-
-      setIsSearching(true);
-      setLoading(true);
-
-      // Backend search (emp_id + first_name + last_name only)
-      const res = await fetch(
-        `${API_URL}?search=${encodeURIComponent(value)}`,
-        { headers: authHeaders }
-      );
-      if (!res.ok) throw new Error("Search request failed");
-
-      const data = await res.json();
-      setEmployees(data.results || []);
-
-    } catch (error) {
-      console.error("Error searching employees:", error);
-      setAlert({ message: "Failed to search employees", type: "danger" });
-    } finally {
-      setLoading(false);
+    if (formData.department_code) {
+      fetchManagers(formData.department_code); // filter by department
+    } else {
+      fetchManagers(); // load all managers
     }
-  }, 500);
-};
+  }, [formData.department_code, showModal]);
+
+
+  const handleSearchChange = (e) => {
+    const value = e.target.value.trim();
+    setSearchTerm(value);
+
+    // Clear any previous debounce timer
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // Debounce API call by 500ms after typing stops
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        // If search box is empty, restore paginated data (no reload flicker)
+        if (!value) {
+          setIsSearching(false);
+          setSearchPage(1);
+          setCurrentPage(1);
+
+          let ordering = "";
+          if (sortConfig.key) {
+            ordering = `&ordering=${
+              sortConfig.direction === "asc"
+                ? sortConfig.key
+                : "-" + sortConfig.key
+            }`;
+          }
+
+          await fetchEmployees(1, ordering);
+          return;
+        }
+
+        // Avoid redundant refresh
+        if (value === searchTerm && employees.length > 0 && isSearching) return;
+
+        setIsSearching(true);
+        setSearchPage(1);
+        loadSearchResults(1, value);
+
+      } catch (error) {
+        console.error("Error searching employees:", error);
+        setAlert({ message: "Failed to search employees", type: "danger" });
+      }
+    }, 500);
+  };
 
   let filteredEmployees = [...employees];
 
@@ -200,6 +307,8 @@ function EmployeeTables() {
   };
 
   const handleAdd = () => {
+    fetchManagers([]);
+
     setFormData({
       id: null,
       emp_id: "",
@@ -219,6 +328,8 @@ function EmployeeTables() {
   };
 
   const handleEdit = (emp) => {
+    setManagers([]);
+
     setFormData({
       id: emp.id,
       emp_id: emp.emp_id,
@@ -256,13 +367,7 @@ function EmployeeTables() {
       });
       
       if (isSearching) {
-        const allEmployees = await fetchAllEmployees();
-        const filtered = allEmployees.filter(
-          (emp) =>
-            emp.emp_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            emp.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-        setEmployees(filtered);
+        await loadSearchResults(searchPage, searchTerm);
       } else {
         fetchEmployees(currentPage);
       }
@@ -352,17 +457,21 @@ function EmployeeTables() {
         return;
       }
 
-      // SUCCESS — Add / Edit
       if (mode === "add") {
-        const resAll = await fetch(API_URL);
-        const dataAll = await resAll.json();
-        const totalCount = dataAll.count || 0;
-        const lastPage = Math.ceil(totalCount / 10);
-        setCurrentPage(lastPage);
-        setIsSearching(false);
-        setSearchTerm("");
-        await fetchEmployees(lastPage);
-      } else {
+      setIsSearching(false);
+      setSearchTerm("");
+
+      //  Get updated total count after successful insert
+      const resAll = await fetch(`${API_URL}?page=1`, { headers: authHeaders });
+      const dataAll = await resAll.json();
+
+      const totalCount = dataAll.count || 0;
+      const lastPage = Math.ceil(totalCount / pageSize);
+
+      //  Jump to the page where last employee exists
+      setCurrentPage(lastPage);
+      await fetchEmployees(lastPage);
+    } else {
         if (isSearching) {
           const allEmployees = await fetchAllEmployees();
           const filtered = allEmployees.filter(
@@ -511,29 +620,64 @@ function EmployeeTables() {
       setLoading(false);
     }
   };
+  
+  
+  const SortIcon = ({ column, activeKey, direction }) => {
+    const active = activeKey === column;
+    const isAsc = direction === "asc";
 
-  const SortIcon = ({ column, sortConfig }) => {
-    const active = sortConfig.key === column;
-    const isAsc = sortConfig.direction === "asc";
+    const barsClass = !active
+      ? "sort-bars default"
+      : isAsc
+      ? "sort-bars asc"
+      : "sort-bars desc";
 
     return (
-      <span style={{ marginLeft: "5px", fontSize: "11px" }}>
-        <span
-          style={{
-            color: active && isAsc ? "#0d6efd" : "#ccc",
-            marginRight: "1px",
-          }}
-        >
-          ▲
-        </span>
-        <span
-          style={{
-            color: active && !isAsc ? "#0d6efd" : "#ccc",
-          }}
-        >
-          ▼
-        </span>
+      <span className="sort-wrapper">
+        <div className={barsClass}><span></span></div>
+        <i
+          className={`bi ${
+            !active ? "bi-arrow-down-up" : isAsc ? "bi-arrow-up" : "bi-arrow-down"
+          } sort-arrow ${active ? "active" : ""}`}
+        />
       </span>
+    );
+  };
+
+  const getVisiblePages = () => {
+    const activePage = isSearching ? searchPage : currentPage;
+    const maxVisible = 5;
+
+    let start = Math.max(activePage - Math.floor(maxVisible / 2), 1);
+    let end = start + maxVisible - 1;
+
+    if (end > totalPages) {
+      end = totalPages;
+      start = Math.max(end - maxVisible + 1, 1);
+    }
+
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  };
+
+  const activePage = isSearching ? searchPage : currentPage;
+
+  useEffect(() => {
+      sessionStorage.setItem("emp_page", activePage);
+      sessionStorage.setItem("emp_search", searchTerm);
+    }, [activePage, searchTerm]);
+
+  const highlightText = (text, keyword) => {
+    if (!keyword) return text;
+
+    const regex = new RegExp(`(${keyword})`, "gi");
+    return text.toString().split(regex).map((part, index) =>
+      part.toLowerCase() === keyword.toLowerCase() ? (
+        <mark key={index} style={{ background: "#ffe066", padding: "2px 4px" }}>
+          {part}
+        </mark>
+      ) : (
+        part
+      )
     );
   };
 
@@ -543,58 +687,112 @@ function EmployeeTables() {
       <h5 className="mb-3">EMPLOYEE DETAILS</h5>
 
       {alert.message && (
-        <div className={`alert alert-${alert.type} fade show`} role="alert">
-          {alert.message}
+        <div className={`custom-alert alert-${alert.type}`}>
+          <div className="alert-icon">
+            {alert.type === "success" && <i className="bi bi-check-circle-fill"></i>}
+            {alert.type === "danger" && <i className="bi bi-x-octagon-fill"></i>}
+            {alert.type === "warning" && <i className="bi bi-exclamation-triangle-fill"></i>}
+            {alert.type === "info" && <i className="bi bi-info-circle-fill"></i>}
+          </div>
+
+          <div className="alert-content">
+            <strong>
+              {alert.type === "success" && "Success! "}
+              {alert.type === "danger" && "Error! "}
+              {alert.type === "warning" && "Warning! "}
+              {alert.type === "info" && "Info! "}
+            </strong>
+            {alert.message}
+          </div>
+
+          <button
+            className="alert-close"
+            onClick={() => setAlert({ message: "", type: "" })}
+          >
+            &times;
+          </button>
         </div>
       )}
 
       <div className="card shadow-sm">
         <div className="card-body">
-          <div className="d-flex justify-content-between mb-3">
-            <div className="position-relative w-25">
-              <input
-                type="text"
-                placeholder="Search by Name or Emp ID..."
-                className="form-control"
-                value={searchTerm}
-                onChange={handleSearchChange}
-              />
-              {isSearching && (
-                <small className="text-muted d-block mt-1">
-                  Searching across all pages...
-                </small>
-              )}
-            </div>
+          {/* ===== DATATABLE TOOLBAR ===== */}
+          <div className="dt-toolbar">
 
-            <div>
-              <label
-                htmlFor="csvUpload"
-                className="btn btn-outline-secondary me-2 mb-0 csv-upload-btn"
-                data-bs-toggle="tooltip"
-                title="Upload Employee CSV"
-              >
-                <i className="bi bi-upload"></i>
-              </label>
-              <input
-                id="csvUpload"
-                type="file"
-                accept=".csv"
-                onChange={handleCSVUpload}
-                style={{ display: "none" }}
-              />
+            {/* FIXED WRAPPER - PREVENTS SHIFTING */}
+            <div className="dt-toolbar-inner">
+              {/* LEFT SIDE */}
+              <div className="dt-left">
 
-              <button className="btn btn-primary" onClick={handleAdd}>
-                <i className="bi bi-plus-circle me-2" /> Add Employee
-              </button>
+                <div className="entries-block">
+                  <span>Show</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      const size = parseInt(e.target.value);
+                      setPageSize(size);
+                      setCurrentPage(1);
+                      setSearchPage(1);
+                    }}
+                  >
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                  </select>
+                  <span>entries</span>
+                </div>
+
+                <div className="search-input-wrapper">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                    placeholder="Search employees..."
+                  />
+
+                  {searchTerm && (
+                    <span
+                      className="search-clear"
+                      onClick={() => {
+                        setSearchTerm("");
+                        setIsSearching(false);
+                        setSearchPage(1);
+                        fetchEmployees(1);
+                      }}
+                    >
+                      ✕
+                    </span>
+                  )}
+                </div>
+
+                <div className="search-info">
+                  <span style={{ visibility: isSearching ? "visible" : "hidden" }}>
+                    {totalRecords} result(s) found for "{searchTerm}"
+                  </span>
+                </div>
+
+              </div>
+
+              {/* RIGHT SIDE - FIXED POSITION */}
+              <div className="dt-right d-flex align-items-center gap-2">
+                <label htmlFor="csvUpload" className="btn btn-outline-secondary csv-upload-btn">
+                  <i className="bi bi-upload me-1"></i> Import
+                </label>
+
+                <button className="btn btn-primary" onClick={handleAdd}>
+                  <i className="bi bi-plus-circle me-1"></i> Add Employee
+                </button>
+              </div>
+
             </div>
           </div>
-
-          <div className="table-responsive" style={{ overflowX: "auto" }}>
+          <div className="dt-wrapper">
+            <div className="table-responsive">
             <table
-              className="table table-bordered table-striped text-center align-middle"
+              className="table dt-table text-center align-middle"
               style={{ whiteSpace: "nowrap", tableLayout: "auto" }}
             >
-              <thead className="table-info">
+              <thead>
                 <tr>
                   <th onClick={() => handleSort("user__emp_id")} style={{ cursor: "pointer" }}>
                     Emp ID <SortIcon column="user__emp_id" sortConfig={sortConfig} />
@@ -617,15 +815,13 @@ function EmployeeTables() {
 
               <tbody>
                 {loading ? (
-                  <>
-                    {[...Array(6)].map((_, i) => (
-                      <tr key={i}>
-                        <td colSpan="10" className="placeholder-glow py-3">
-                          <span className="placeholder col-12"></span>
-                        </td>
-                      </tr>
-                    ))}
-                  </>
+                  [...Array(pageSize)].map((_, i) => (
+                    <tr key={i}>
+                      <td colSpan="10">
+                        <div className="skeleton-row"></div>
+                      </td>
+                    </tr>
+                  ))
                 ) : filteredEmployees.length === 0 ? (
                   <tr>
                     <td colSpan="10" className="text-center py-5">
@@ -638,10 +834,13 @@ function EmployeeTables() {
                 ) : (
                   filteredEmployees.map((emp) => (
                     <tr key={emp.id}>
-                      <td>{emp.emp_id}</td>
+                      <td>{emp.emp_id || emp.user?.emp_id || "-"}</td>
                       <td>
-                        {emp.full_name ||
-                          `${emp.user?.first_name || ""} ${emp.user?.last_name || ""}`.trim()}
+                        {highlightText(
+                          emp.full_name ||
+                            `${emp.user?.first_name || ""} ${emp.user?.last_name || ""}`.trim(),
+                          searchTerm
+                        )}
                       </td>
                       <td>{emp.email}</td>
                       <td>{emp.designation}</td>
@@ -659,27 +858,13 @@ function EmployeeTables() {
                         </span>
                       </td>
                       <td className="text-nowrap" style={{ minWidth: "120px" }}>
-                        <button
-                          className="btn btn-sm btn-info me-2"
-                          onClick={() => handleEdit(emp)}
-                          title="Edit"
-                        >
+                        <button className="btn btn-sm btn-info me-2" onClick={() => handleEdit(emp)}>
                           <i className="bi bi-pencil-square text-white"></i>
                         </button>
-
-                        <button
-                          className="btn btn-sm btn-warning me-2"
-                          onClick={() => handleView(emp)}
-                          title="View"
-                        >
+                        <button className="btn btn-sm btn-warning me-2" onClick={() => handleView(emp)}>
                           <i className="bi bi-eye text-white"></i>
                         </button>
-
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={() => handleDelete(emp.id)}
-                          title="Delete"
-                        >
+                        <button className="btn btn-sm btn-danger" onClick={() => handleDelete(emp.id)}>
                           <i className="bi bi-trash text-white"></i>
                         </button>
                       </td>
@@ -688,60 +873,121 @@ function EmployeeTables() {
                 )}
               </tbody>
             </table>
+              </div>
           </div>
 
           {/* Pagination */}
-          {!isSearching && totalPages > 1 && (
-            <div className="d-flex justify-content-between align-items-center mt-3">
+          {totalPages > 1 && (
+            <div className="dt-pagination d-flex justify-content-between align-items-center mt-3">
 
-              {/* Record Count */}
+              {/* LEFT TEXT */}
               <div className="text-muted">
-                Showing {(currentPage - 1) * 10 + 1} –{" "}
-                {Math.min(currentPage * 10, totalRecords)} of {totalRecords} records
+                Showing {(activePage - 1) * pageSize + 1} to{" "}
+                {Math.min(activePage * pageSize, totalRecords)} of {totalRecords} entries
               </div>
 
-              {/* Pagination Buttons */}
-              <nav>
-                <ul className="pagination mb-0">
+              {/* RIGHT CONTROLS */}
+              <ul className="pagination mb-0">
 
-                  {/* Previous */}
-                  <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                {/* First */}
+                <li className={`page-item ${activePage === 1 ? "disabled" : ""}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => {
+                      if (isSearching) {
+                        setSearchPage(1);
+                        loadSearchResults(1, searchTerm);
+                      } else {
+                        setCurrentPage(1);
+                      }
+                      window.scrollTo({ top: 200, behavior: "smooth" });
+                    }}
+                  >
+                    «
+                  </button>
+                </li>
+
+                {/* Previous */}
+                <li className={`page-item ${activePage === 1 ? "disabled" : ""}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => {
+                      if (isSearching) {
+                        const prev = searchPage - 1;
+                        setSearchPage(prev);
+                        loadSearchResults(prev, searchTerm);
+                      } else {
+                        setCurrentPage(currentPage - 1);
+                      }
+                      window.scrollTo({ top: 200, behavior: "smooth" });
+                    }}
+                  >
+                    ‹
+                  </button>
+                </li>
+
+                {/* LIMITED PAGE NUMBERS */}
+                {getVisiblePages().map((page) => (
+                  <li
+                    key={page}
+                    className={`page-item ${
+                      page === (isSearching ? searchPage : currentPage) ? "active" : ""
+                    }`}
+                  >
                     <button
                       className="page-link"
-                      onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
+                      onClick={() => {
+                        if (isSearching) {
+                          setSearchPage(page);
+                          loadSearchResults(page, searchTerm);
+                        } else {
+                          setCurrentPage(page);
+                        }
+                        window.scrollTo({ top: 200, behavior: "smooth" });
+                      }}
                     >
-                      Previous
+                      {page}
                     </button>
                   </li>
+                ))}
 
-                  {/* Page Numbers */}
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <li
-                      key={page}
-                      className={`page-item ${page === currentPage ? "active" : ""}`}
-                    >
-                      <button
-                        className="page-link"
-                        onClick={() => setCurrentPage(page)}
-                      >
-                        {page}
-                      </button>
-                    </li>
-                  ))}
+                {/* Next */}
+                <li className={`page-item ${activePage === totalPages ? "disabled" : ""}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => {
+                      if (isSearching) {
+                        const next = searchPage + 1;
+                        setSearchPage(next);
+                        loadSearchResults(next, searchTerm);
+                      } else {
+                        setCurrentPage(currentPage + 1);
+                      }
+                      window.scrollTo({ top: 200, behavior: "smooth" });
+                    }}
+                  >
+                    ›
+                  </button>
+                </li>
 
-                  {/* Next */}
-                  <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-                    <button
-                      className="page-link"
-                      onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}
-                    >
-                      Next
-                    </button>
-                  </li>
-
-                </ul>
-              </nav>
-
+                {/* Last */}
+                <li className={`page-item ${activePage === totalPages ? "disabled" : ""}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => {
+                      if (isSearching) {
+                        setSearchPage(totalPages);
+                        loadSearchResults(totalPages, searchTerm);
+                      } else {
+                        setCurrentPage(totalPages);
+                      }
+                      window.scrollTo({ top: 200, behavior: "smooth" });
+                    }}
+                  >
+                    »
+                  </button>
+                </li>
+              </ul>
             </div>
           )}
         </div>
@@ -832,15 +1078,16 @@ function EmployeeTables() {
                         className={`form-select ${errors.department_code ? "is-invalid" : ""}`}
                         name="department_code"
                         value={formData.department_code}
-                        onChange={handleInputChange}
+                        onChange={handleInputChange}   // ✅ only update state
                         disabled={mode === "view"}
                       >
                         <option value="">Select Department</option>
-                        <option value="HR">HR</option>
-                        <option value="FIN">Finance</option>
-                        <option value="ENG">Engineering</option>
-                        <option value="MKT">Marketing</option>
-                        <option value="SALES">Sales</option>
+
+                        {departments.map((dept) => (
+                          <option key={dept.id} value={dept.code}>
+                            {dept.name}
+                          </option>
+                        ))}
                       </select>
                       {errors.department_code && (
                         <div className="invalid-feedback">
@@ -941,7 +1188,7 @@ function EmployeeTables() {
 
                     {/* Manager */}
                     <div className="col-md-6">
-                      <label className="form-label">Manager (Select)</label>
+                      <label className="form-label">Manager</label>
                       <select
                         className="form-select"
                         name="manager"
@@ -949,7 +1196,7 @@ function EmployeeTables() {
                         onChange={handleInputChange}
                         disabled={mode === "view"}
                       >
-                        <option value="">No Manager</option>
+                        <option value="">Select Manager</option>
                         {managers.map((m) => (
                           <option key={m.emp_id} value={m.emp_id}>
                             {managerLabel(m)}
