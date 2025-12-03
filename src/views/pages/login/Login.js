@@ -80,91 +80,91 @@ export default function Login() {
 
   return (
     
-    <div className="container mt-5 d-flex justify-content-center align-items-center">
-     
-     
-      <div
-        className="card shadow-lg p-4"
-        style={{ width: "400px", borderRadius: "15px" }}
-
-      >
-        <div className="text-center mb-3">
-      <img 
-        src="/images/logo.png" 
-        alt="Logo" 
-        className="img-fluid" 
-        style={{ width: "100px", filter: "invert(36%) sepia(94%) saturate(2488%) hue-rotate(189deg)" }} 
-      />
+    <div className="container mt-5">
+      <div className="row justify-content-center">
+     <div className="col-12 col-md-12 text-center mb-3">
+        <img 
+          src="/images/logo-purple.png" 
+          alt="Logo" 
+          className="img-fluid" 
+          style={{ width: "240px" }} 
+        />
     </div>
+     <div className="clearfix"></div>
+     <div className="col-md-5">
+        <div className="card shadow-lg p-4"
+          style={{ borderRadius: "15px" }} >
+          
+        <h3 className="text-center mb-4 text-primary fw-bold">LOGIN</h3>
 
-       <h3 className="text-center mb-4 text-primary fw-bold">LOGIN</h3>
+          {alert.show && (
+            <div
+              className={`alert alert-${alert.type} alert-dismissible fade show`}
+              role="alert"
+            >
+              {alert.message}
+              <button
+                type="button"
+                className="btn-close"
+                onClick={() => setAlert({ show: false, message: "", type: "" })}
+              ></button>
+            </div>
+          )}
 
-        {alert.show && (
-          <div
-            className={`alert alert-${alert.type} alert-dismissible fade show`}
-            role="alert"
-          >
-            {alert.message}
+          <form onSubmit={handleSubmit}>
+            <div className="mb-3">
+              <label className="form-label fw-bold">
+                Username / Emp ID / Email
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                placeholder="Enter your username, emp ID, or email"
+                disabled={loading} // ✅ Disable during loading
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label fw-bold">Password</label>
+              <input
+                type="password"
+                className="form-control"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="Enter your password"
+                disabled={loading} // ✅ Disable during loading
+              />
+            </div>
+
             <button
-              type="button"
-              className="btn-close"
-              onClick={() => setAlert({ show: false, message: "", type: "" })}
-            ></button>
-          </div>
-        )}
+              type="submit"
+              className="btn btn-primary w-100 d-flex justify-content-center align-items-center"
+              disabled={loading} // ✅ Prevent multiple clicks
+            >
+              {loading ? (
+                <>
+                  <span
+                    className="spinner-border spinner-border-sm me-2"
+                    role="status"
+                    aria-hidden="true"
+                  ></span>
+                  Logging in...
+                </>
+              ) : (
+                "Login"
+              )}
+            </button>
+          </form>
 
-        <form onSubmit={handleSubmit}>
-          <div className="mb-3">
-            <label className="form-label fw-bold">
-              Username / Emp ID / Email
-            </label>
-            <input
-              type="text"
-              className="form-control"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              placeholder="Enter your username, emp ID, or email"
-              disabled={loading} // ✅ Disable during loading
-            />
-          </div>
-
-          <div className="mb-3">
-            <label className="form-label fw-bold">Password</label>
-            <input
-              type="password"
-              className="form-control"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="Enter your password"
-              disabled={loading} // ✅ Disable during loading
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="btn btn-primary w-100 d-flex justify-content-center align-items-center"
-            disabled={loading} // ✅ Prevent multiple clicks
-          >
-            {loading ? (
-              <>
-                <span
-                  className="spinner-border spinner-border-sm me-2"
-                  role="status"
-                  aria-hidden="true"
-                ></span>
-                Logging in...
-              </>
-            ) : (
-              "Login"
-            )}
-          </button>
-        </form>
-
-        <div className="text-center mt-3 text-muted small">© 2025 eGrovity</div>
+          <div className="text-center mt-3 text-muted small">© 2025 eGrovity</div>
+        </div>
       </div>
+      <div className="clearfix"></div>
     </div>
-  
+  </div>
   );
 }
