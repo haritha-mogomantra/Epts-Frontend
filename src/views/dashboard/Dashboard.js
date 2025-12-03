@@ -363,51 +363,36 @@ function PerformanceDashboard() {
       </div>
 
       
-
-     <div className="card mt-5 shadow-sm mb-3">
-
-  {/* ========== TOP PART: Header + Controls ========== */}
-  <div className="card-body">
-    <div className="row align-items-center">
-      
+ {/* Bottom Performance Block Start */}
+  <div className="card mt-5 mb-3">
+  {/* ========== TOP PART: Header + Controls ========== */}      
       {/* Left: Title + subtitle */}
-     <div className="card shadow-sm border-1 rounded p-2">
-  <div className="d-flex justify-content-between align-items-center">
+    <div className="card-header">
+      <div className="row">
+          <div className="col-8 col-md-8">
+            <h5 className="mb-0 fw-semibold text-dark">All Employee Performance</h5>
+            <small className="text-muted">Weekly ranking overview of all employees</small>
+          </div>
 
-    <div>
-      <h5 className="mb-0 fw-semibold text-dark">All Employee Performance</h5>
-      <small className="text-muted">Weekly ranking overview of all employees</small>
+          <div className="col-4 col-md-4">
+            <select
+              className="form-select fw-semibold"
+              value={selectedDept}
+              onChange={(e) => setSelectedDept(e.target.value)}
+            >
+              <option value="all">All Departments</option>
+              {departments.map(dept => (
+                <option key={dept.id} value={dept.name}>{dept.name}</option>
+              ))}
+            </select>
+          </div>
+     </div>
     </div>
-
-    <div className="col-12 col-md-4">
-      <select
-        className="form-select fw-semibold"
-        value={selectedDept}
-        onChange={(e) => setSelectedDept(e.target.value)}
-        style={{ minWidth: "220px" }}
-      >
-        <option value="all">All Departments</option>
-        {departments.map(dept => (
-          <option key={dept.id} value={dept.name}>{dept.name}</option>
-        ))}
-      </select>
-    </div>
-
-  </div>
-</div>
-
-      
-
-      
-     
-
-    </div>
-  </div>
 
   {/* ========== BOTTOM PART: Table Card ========== */}
-  <div className="card shadow-sm m-2">
+  <div className="card-body">
     <div className="table-responsive">
-      <table className="table align-middle table-hover mb-0">
+      <table className="table table-bordered align-middle table-hover mb-0">
         <thead className="table-dark text-center">
           <tr>
             <th>Emp ID</th>
@@ -516,8 +501,7 @@ function PerformanceDashboard() {
     </div>
   </div>
 </div>
-
-
+ {/* Bottom Performance Block End */}
 
       
       {showModal && selectedEmployee && (
