@@ -399,7 +399,7 @@ function EmployeePerformance() {
                     type="text"
                     value={searchQuery}
                     placeholder="search"
-                    style={{width:"100px"}}
+                    // style={{width:"100px"}}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
                       setPage(1);
