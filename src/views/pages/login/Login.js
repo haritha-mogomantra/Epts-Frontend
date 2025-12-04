@@ -91,7 +91,7 @@ export default function Login() {
         />
     </div>
      <div className="clearfix"></div>
-     <div className="col-md-5">
+     <div className="col-lg-5 col-md-5 col-sm-5 col-xs-12">
         <div className="card shadow-lg p-4"
           style={{ borderRadius: "15px" }} >
           
